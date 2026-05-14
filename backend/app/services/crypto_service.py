@@ -279,3 +279,100 @@ class CryptoService:
         except x509.ExtensionNotFound:
             pass
         return {"subject": subject, "sans": sans}
+
+    def parse_certificate(self, cert_pem: str) -> dict:
+        cert = x509.load_pem_x509_certificate(cert_pem.encode())
+        subject = {}
+        for attr in cert.subject:
+            for key, oid in _NAME_OID_MAP.items():
+                if attr.oid == oid:
+                    subject[key] = attr.value
+        issuer = {}
+        for attr in cert.issuer:
+            for key, oid in _NAME_OID_MAP.items():
+                if attr.oid == oid:
+                    issuer[key] = attr.value
+
+        is_ca = False
+        try:
+            bc = cert.extensions.get_extension_for_class(x509.BasicConstraints)
+            is_ca = bc.value.ca
+        except x509.ExtensionNotFound:
+            pass
+
+        sans = []
+        try:
+            san_ext = cert.extensions.get_extension_for_class(x509.SubjectAlternativeName)
+            for name in san_ext.value:
+                if isinstance(name, x509.DNSName):
+                    sans.append({"type": "DNS", "value": name.value})
+                elif isinstance(name, x509.IPAddress):
+                    sans.append({"type": "IP", "value": str(name.value)})
+                elif isinstance(name, x509.RFC822Name):
+                    sans.append({"type": "Email", "value": name.value})
+                elif isinstance(name, x509.UniformResourceIdentifier):
+                    sans.append({"type": "URI", "value": name.value})
+        except x509.ExtensionNotFound:
+            pass
+
+        key_algorithm = "RSA"
+        key_size = 0
+        pub = cert.public_key()
+        if isinstance(pub, rsa.RSAPublicKey):
+            key_algorithm = "RSA"
+            key_size = pub.key_size
+        elif isinstance(pub, ec.EllipticCurvePublicKey):
+            key_algorithm = "EC"
+            key_size = pub.key_size
+
+        return {
+            "subject": subject,
+            "issuer": issuer,
+            "subject_dn": cert.subject.rfc4514_string(),
+            "issuer_dn": cert.issuer.rfc4514_string(),
+            "serial_number": format(cert.serial_number, "x"),
+            "not_before": cert.not_valid_before_utc,
+            "not_after": cert.not_valid_after_utc,
+            "is_ca": is_ca,
+            "key_algorithm": key_algorithm,
+            "key_size": key_size,
+            "sans": sans,
+        }
+
+    def load_pkcs12(self, data: bytes, passphrase: str | None = None) -> tuple[str, str, list[str]]:
+        from cryptography.hazmat.primitives.serialization import pkcs12
+        pw = passphrase.encode() if passphrase else None
+        private_key, certificate, chain = pkcs12.load_key_and_certificates(data, pw)
+        cert_pem = certificate.public_bytes(serialization.Encoding.PEM).decode()
+        key_pem = private_key.private_bytes(
+            serialization.Encoding.PEM,
+            serialization.PrivateFormat.TraditionalOpenSSL,
+            serialization.NoEncryption(),
+        ).decode()
+        chain_pems = [c.public_bytes(serialization.Encoding.PEM).decode() for c in (chain or [])]
+        return cert_pem, key_pem, chain_pems
+
+    def der_to_pem_cert(self, der_bytes: bytes) -> str:
+        cert = x509.load_der_x509_certificate(der_bytes)
+        return cert.public_bytes(serialization.Encoding.PEM).decode()
+
+    def der_to_pem_key(self, der_bytes: bytes) -> str:
+        key = serialization.load_der_private_key(der_bytes, password=None)
+        return key.private_bytes(
+            serialization.Encoding.PEM,
+            serialization.PrivateFormat.PKCS8,
+            serialization.NoEncryption(),
+        ).decode()
+
+    def verify_key_matches_cert(self, key_pem: str, cert_pem: str) -> bool:
+        key = self._load_private_key(key_pem)
+        cert = x509.load_pem_x509_certificate(cert_pem.encode())
+        key_pub_bytes = key.public_key().public_bytes(
+            serialization.Encoding.PEM,
+            serialization.PublicFormat.SubjectPublicKeyInfo,
+        )
+        cert_pub_bytes = cert.public_key().public_bytes(
+            serialization.Encoding.PEM,
+            serialization.PublicFormat.SubjectPublicKeyInfo,
+        )
+        return key_pub_bytes == cert_pub_bytes
