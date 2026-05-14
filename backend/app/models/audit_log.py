@@ -24,6 +24,8 @@ class AuditAction(str, enum.Enum):
     generated_crl = "generated_crl"
     renewed_cert = "renewed_cert"
     submitted_csr = "submitted_csr"
+    imported_ca = "imported_ca"
+    imported_cert = "imported_cert"
 
 
 class AuditResourceType(str, enum.Enum):

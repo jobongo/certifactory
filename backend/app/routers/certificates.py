@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Response, UploadFile, status
 from sqlalchemy.orm import Session
 
 from app.dependencies import get_db, require_role
@@ -11,12 +11,14 @@ from app.schemas.certificate import (
     CSRSubmit,
 )
 from app.services.certificate_service import CertificateService
+from app.services.import_service import ImportService
 
 router = APIRouter(prefix="/api/v1/certificates", tags=["certificates"])
 cert_service = CertificateService()
+import_service = ImportService()
 
 
-@router.get("/", response_model=CertificateListResponse)
+@router.get("", response_model=CertificateListResponse)
 def list_certificates(
     page: int = Query(1, ge=1),
     per_page: int = Query(25, ge=1, le=100),
@@ -35,7 +37,7 @@ def list_certificates(
     return CertificateListResponse(items=items, total=total, page=page, per_page=per_page)
 
 
-@router.post("/", response_model=CertificateResponse, status_code=status.HTTP_201_CREATED)
+@router.post("", response_model=CertificateResponse, status_code=status.HTTP_201_CREATED)
 def create_certificate(
     body: CertificateCreate,
     db: Session = Depends(get_db),
@@ -59,6 +61,28 @@ def submit_csr(
 ):
     try:
         cert = cert_service.submit_csr(db, current_user.id, body.model_dump())
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    return cert
+
+
+@router.post("/import", response_model=CertificateResponse, status_code=status.HTTP_201_CREATED)
+async def import_certificate(
+    cert_file: UploadFile | None = File(None),
+    key_file: UploadFile | None = File(None),
+    pkcs12_file: UploadFile | None = File(None),
+    passphrase: str | None = Form(None),
+    ca_id: str | None = Form(None),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(UserRole.admin, UserRole.operator, UserRole.requester)),
+):
+    cert_data = await cert_file.read() if cert_file else None
+    key_data = await key_file.read() if key_file else None
+    pkcs12_data = await pkcs12_file.read() if pkcs12_file else None
+    if not cert_data and not pkcs12_data:
+        raise HTTPException(status_code=400, detail="Provide either cert_file or pkcs12_file")
+    try:
+        cert, parent_detected = import_service.import_certificate(db, current_user.id, cert_data, key_data, pkcs12_data, passphrase, ca_id)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     return cert
