@@ -1,7 +1,39 @@
+import { BrowserRouter, Routes, Route } from 'react-router-dom'
+import AppLayout from './components/layout/AppLayout'
+import ProtectedRoute from './components/shared/ProtectedRoute'
+import Login from './pages/Login'
+import Dashboard from './pages/Dashboard'
+import CAList from './pages/cas/CAList'
+import CADetail from './pages/cas/CADetail'
+import CACreate from './pages/cas/CACreate'
+import CertificateList from './pages/certificates/CertificateList'
+import CertificateDetail from './pages/certificates/CertificateDetail'
+import CertificateCreate from './pages/certificates/CertificateCreate'
+import CSRSubmit from './pages/certificates/CSRSubmit'
+import PendingRequests from './pages/PendingRequests'
+import AuditLog from './pages/AuditLog'
+import Users from './pages/Users'
+
 export default function App() {
   return (
-    <div className="min-h-screen bg-white dark:bg-surface-1 text-gray-900 dark:text-gray-100">
-      <h1 className="text-2xl p-8">PKI Manager</h1>
-    </div>
+    <BrowserRouter>
+      <Routes>
+        <Route path="/login" element={<Login />} />
+        <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
+          <Route path="/" element={<Dashboard />} />
+          <Route path="/cas" element={<ProtectedRoute roles={['admin', 'operator', 'auditor']}><CAList /></ProtectedRoute>} />
+          <Route path="/cas/new" element={<ProtectedRoute roles={['admin', 'operator']}><CACreate /></ProtectedRoute>} />
+          <Route path="/cas/:id" element={<ProtectedRoute roles={['admin', 'operator', 'auditor']}><CADetail /></ProtectedRoute>} />
+          <Route path="/cas/:id/intermediate/new" element={<ProtectedRoute roles={['admin', 'operator']}><CACreate /></ProtectedRoute>} />
+          <Route path="/certificates" element={<ProtectedRoute roles={['admin', 'operator', 'auditor']}><CertificateList /></ProtectedRoute>} />
+          <Route path="/certificates/new" element={<ProtectedRoute roles={['admin', 'operator', 'requester']}><CertificateCreate /></ProtectedRoute>} />
+          <Route path="/certificates/csr" element={<ProtectedRoute roles={['admin', 'operator', 'requester']}><CSRSubmit /></ProtectedRoute>} />
+          <Route path="/certificates/:id" element={<CertificateDetail />} />
+          <Route path="/pending" element={<ProtectedRoute roles={['admin', 'operator']}><PendingRequests /></ProtectedRoute>} />
+          <Route path="/audit" element={<ProtectedRoute roles={['admin', 'auditor', 'operator']}><AuditLog /></ProtectedRoute>} />
+          <Route path="/users" element={<ProtectedRoute roles={['admin']}><Users /></ProtectedRoute>} />
+        </Route>
+      </Routes>
+    </BrowserRouter>
   )
 }
