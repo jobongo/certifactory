@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
-from app.routers import auth, users, audit
+from app.routers import auth, users, audit, cas
 
 app = FastAPI(title="PKI Manager", version="0.1.0")
 
@@ -17,6 +17,7 @@ app.add_middleware(
 app.include_router(auth.router)
 app.include_router(users.router)
 app.include_router(audit.router)
+app.include_router(cas.router)
 
 
 @app.get("/health")
