@@ -35,7 +35,11 @@ cd certifactory
 
 # Configure environment
 cp .env.example .env
-# Edit .env — set POSTGRES_PASSWORD, PKI_MASTER_KEY, and JWT_SECRET_KEY
+
+# Generate secure keys
+sed -i "s/change-me-strong-password/$(openssl rand -hex 16)/" .env
+sed -i "s/change-me-to-a-secure-32-byte-key/$(openssl rand -hex 32)/" .env
+sed -i "s/change-me-to-a-random-secret/$(openssl rand -hex 32)/" .env
 
 # Start all services
 docker compose up --build
