@@ -5,7 +5,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
-from app.routers import auth, users, audit, cas, certificates, crl, ocsp, dashboard
+from app.routers import auth, users, audit, cas, certificates, crl, ocsp, dashboard, tokens
 
 
 @asynccontextmanager
@@ -42,8 +42,19 @@ app.include_router(certificates.router)
 app.include_router(crl.router)
 app.include_router(ocsp.router)
 app.include_router(dashboard.router)
+app.include_router(tokens.router)
 
 
 @app.get("/health")
 def health_check():
     return {"status": "ok"}
+
+
+@app.get("/api/v1")
+def api_info():
+    return {
+        "name": "Certifactory API",
+        "version": "0.1.0",
+        "docs": "/docs",
+        "redoc": "/redoc",
+    }
