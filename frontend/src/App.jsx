@@ -28,7 +28,7 @@ export default function App() {
           <Route path="/audit" element={<ProtectedRoute roles={['admin', 'auditor', 'operator']}><AuditLog /></ProtectedRoute>} />
           <Route path="/users" element={<ProtectedRoute roles={['admin']}><Users /></ProtectedRoute>} />
           <Route path="/profile" element={<Profile />} />
-          <Route path="/docs" element={<Docs />} />
+          <Route path="/guide" element={<Docs />} />
         </Route>
       </Routes>
     </BrowserRouter>

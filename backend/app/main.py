@@ -58,3 +58,16 @@ def api_info():
         "docs": "/docs",
         "redoc": "/redoc",
     }
+
+
+from fastapi.responses import RedirectResponse
+
+
+@app.get("/api/v1/docs")
+def api_docs_redirect():
+    return RedirectResponse(url="/docs")
+
+
+@app.get("/api/v1/redoc")
+def api_redoc_redirect():
+    return RedirectResponse(url="/redoc")
