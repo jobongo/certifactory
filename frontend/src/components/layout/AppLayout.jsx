@@ -10,7 +10,7 @@ export default function AppLayout() {
   const { data: stats } = useQuery({ queryKey: ['dashboard-stats'], queryFn: getStats, refetchInterval: 30000 })
 
   return (
-    <div className="min-h-screen flex flex-col bg-gray-50 dark:bg-surface-1 text-gray-900 dark:text-gray-100">
+    <div className="h-screen flex flex-col bg-gray-50 dark:bg-surface-1 text-gray-900 dark:text-gray-100 overflow-hidden">
       <Navbar onMenuToggle={() => setSidebarCollapsed(!sidebarCollapsed)} />
       <div className="flex flex-1 min-h-0">
         <Sidebar pendingCount={stats?.pending_requests || 0} collapsed={sidebarCollapsed} onToggle={() => setSidebarCollapsed(!sidebarCollapsed)} />

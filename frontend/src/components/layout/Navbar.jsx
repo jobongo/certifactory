@@ -2,7 +2,7 @@ import { useAuth } from '../../hooks/useAuth'
 import { useTheme } from '../../hooks/useTheme'
 import { useNavigate } from 'react-router-dom'
 import Dropdown, { DropdownItem } from '../ui/Dropdown'
-import { SunIcon, MoonIcon, BellIcon, MenuIcon, ChevronDownIcon } from '../../utils/icons'
+import { SunIcon, MoonIcon, BellIcon, MenuIcon, ChevronDownIcon, BookIcon } from '../../utils/icons'
 
 export default function Navbar({ onMenuToggle }) {
   const { user, logout } = useAuth()
@@ -32,6 +32,10 @@ export default function Navbar({ onMenuToggle }) {
 
         <button className="p-2 rounded text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-surface-4">
           <BellIcon className="w-4 h-4" />
+        </button>
+
+        <button onClick={() => navigate('/guide')} className="p-2 rounded text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-surface-4">
+          <BookIcon className="w-4 h-4" />
         </button>
 
         <Dropdown
