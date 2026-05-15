@@ -8,13 +8,13 @@ from app.services.auth_service import AuthService
 router = APIRouter(prefix="/api/v1/users", tags=["users"])
 auth_service = AuthService()
 
-@router.get("/", response_model=UserListResponse)
+@router.get("", response_model=UserListResponse)
 def list_users(page: int = Query(1, ge=1), per_page: int = Query(25, ge=1, le=100), db: Session = Depends(get_db), current_user: User = Depends(require_role(UserRole.admin))):
     total = db.query(User).count()
     users = db.query(User).offset((page - 1) * per_page).limit(per_page).all()
     return UserListResponse(items=users, total=total, page=page, per_page=per_page)
 
-@router.post("/", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
+@router.post("", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
 def create_user(body: UserCreate, db: Session = Depends(get_db), current_user: User = Depends(require_role(UserRole.admin))):
     if db.query(User).filter((User.username == body.username) | (User.email == body.email)).first():
         raise HTTPException(status_code=400, detail="Username or email already exists")
@@ -23,6 +23,23 @@ def create_user(body: UserCreate, db: Session = Depends(get_db), current_user: U
     db.commit()
     db.refresh(user)
     return user
+
+@router.put("/{user_id}/reset-password")
+def reset_password(
+    user_id: str,
+    body: dict,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(UserRole.admin)),
+):
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    new_password = body.get("password")
+    if not new_password:
+        raise HTTPException(status_code=400, detail="Password is required")
+    user.password_hash = auth_service.hash_password(new_password)
+    db.commit()
+    return {"message": "Password reset successfully"}
 
 @router.get("/{user_id}", response_model=UserResponse)
 def get_user(user_id: str, db: Session = Depends(get_db), current_user: User = Depends(require_role(UserRole.admin))):
