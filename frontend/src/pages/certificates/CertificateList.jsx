@@ -8,13 +8,15 @@ import Select from '../../components/ui/Select'
 import Button from '../../components/ui/Button'
 import Input from '../../components/ui/Input'
 import StatusBadge from '../../components/shared/StatusBadge'
-import { PlusIcon } from '../../utils/icons'
+import ImportCertModal from '../../components/forms/ImportCertModal'
+import { PlusIcon, UploadIcon } from '../../utils/icons'
 
 export default function CertificateList() {
   const navigate = useNavigate()
   const [caId, setCaId] = useState('')
   const [status, setStatus] = useState('')
   const [page, setPage] = useState(1)
+  const [showImport, setShowImport] = useState(false)
 
   const params = { page, per_page: 25 }
   if (caId) params.ca_id = caId
@@ -46,6 +48,7 @@ export default function CertificateList() {
         <div className="flex gap-2">
           <Button onClick={() => navigate('/certificates/new')}><PlusIcon className="w-4 h-4" /> New Certificate</Button>
           <Button variant="secondary" onClick={() => navigate('/certificates/csr')}>Submit CSR</Button>
+          <Button variant="secondary" onClick={() => setShowImport(true)}><UploadIcon className="w-4 h-4" /> Import</Button>
         </div>
       </div>
 
@@ -68,6 +71,8 @@ export default function CertificateList() {
           )}
         </>
       )}
+
+      <ImportCertModal isOpen={showImport} onClose={() => setShowImport(false)} />
     </div>
   )
 }

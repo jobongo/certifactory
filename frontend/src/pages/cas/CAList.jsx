@@ -5,7 +5,8 @@ import { getCAs, getCATree } from '../../api/cas'
 import Button from '../../components/ui/Button'
 import Table from '../../components/ui/Table'
 import StatusBadge from '../../components/shared/StatusBadge'
-import { PlusIcon, TableIcon, TreeIcon, ChevronRightIcon, ChevronDownIcon } from '../../utils/icons'
+import ImportCAModal from '../../components/forms/ImportCAModal'
+import { PlusIcon, TableIcon, TreeIcon, ChevronRightIcon, ChevronDownIcon, UploadIcon } from '../../utils/icons'
 
 function TreeNode({ node, level = 0 }) {
   const [expanded, setExpanded] = useState(true)
@@ -37,6 +38,7 @@ function TreeNode({ node, level = 0 }) {
 
 export default function CAList() {
   const [view, setView] = useState('table')
+  const [showImport, setShowImport] = useState(false)
   const navigate = useNavigate()
   const { data: cas, isLoading } = useQuery({ queryKey: ['cas'], queryFn: () => getCAs(1, 100) })
   const { data: tree } = useQuery({ queryKey: ['cas-tree'], queryFn: getCATree, enabled: view === 'tree' })
@@ -63,6 +65,7 @@ export default function CAList() {
               <TreeIcon className="w-4 h-4 text-gray-500" />
             </button>
           </div>
+          <Button variant="secondary" onClick={() => setShowImport(true)}><UploadIcon className="w-4 h-4" /> Import CA</Button>
           <Button onClick={() => navigate('/cas/new')}><PlusIcon className="w-4 h-4" /> Create Root CA</Button>
         </div>
       </div>
@@ -77,6 +80,8 @@ export default function CAList() {
           {tree?.length === 0 && <div className="text-center py-8 text-gray-400">No CAs created yet</div>}
         </div>
       )}
+
+      <ImportCAModal isOpen={showImport} onClose={() => setShowImport(false)} />
     </div>
   )
 }
