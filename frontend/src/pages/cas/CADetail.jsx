@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { getCA, getCAChain, disableCA, enableCA, updateCA } from '../../api/cas'
@@ -7,6 +8,7 @@ import Table from '../../components/ui/Table'
 import Button from '../../components/ui/Button'
 import StatusBadge from '../../components/shared/StatusBadge'
 import CertChain from '../../components/shared/CertChain'
+import CreateCAModal from '../../components/forms/CreateCAModal'
 import { useAuth } from '../../hooks/useAuth'
 
 export default function CADetail() {
@@ -14,6 +16,7 @@ export default function CADetail() {
   const navigate = useNavigate()
   const { user } = useAuth()
   const queryClient = useQueryClient()
+  const [showIntermediate, setShowIntermediate] = useState(false)
 
   const { data: ca, isLoading } = useQuery({ queryKey: ['ca', id], queryFn: () => getCA(id) })
   const { data: chain } = useQuery({ queryKey: ['ca-chain', id], queryFn: () => getCAChain(id) })
@@ -75,7 +78,7 @@ export default function CADetail() {
           <div className="flex items-center gap-2 mt-1"><StatusBadge status={ca.status} /></div>
         </div>
         <div className="flex gap-2">
-          <Button variant="secondary" onClick={() => navigate(`/cas/${id}/intermediate/new`)}>Create Intermediate</Button>
+          <Button variant="secondary" onClick={() => setShowIntermediate(true)}>Create Intermediate</Button>
           {user?.role === 'admin' && (
             <Button variant={ca.status === 'active' ? 'danger' : 'primary'} onClick={() => toggleStatus.mutate()}>
               {ca.status === 'active' ? 'Disable' : 'Enable'}
@@ -86,6 +89,7 @@ export default function CADetail() {
       <div className="bg-white dark:bg-surface-3 rounded-lg border border-gray-200 dark:border-gray-800 p-4">
         <Tabs tabs={tabs} />
       </div>
+      <CreateCAModal isOpen={showIntermediate} onClose={() => setShowIntermediate(false)} parentId={id} />
     </div>
   )
 }
