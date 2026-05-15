@@ -30,7 +30,7 @@ export default function Login() {
     <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-surface-1">
       <div className="w-full max-w-sm">
         <h1 className="text-2xl font-semibold text-center text-gray-900 dark:text-gray-100 mb-8">
-          PKI Manager
+          Certifactory
         </h1>
         <div className="bg-white dark:bg-surface-3 rounded-lg border border-gray-200 dark:border-gray-800 p-6">
           <form onSubmit={handleSubmit} className="space-y-4">

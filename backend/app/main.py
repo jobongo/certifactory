@@ -24,7 +24,7 @@ async def lifespan(app_instance):
         yield
 
 
-app = FastAPI(title="PKI Manager", version="0.1.0", lifespan=lifespan)
+app = FastAPI(title="Certifactory", version="0.1.0", lifespan=lifespan, redirect_slashes=False)
 
 app.add_middleware(
     CORSMiddleware,

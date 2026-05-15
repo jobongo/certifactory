@@ -21,7 +21,7 @@ export default function Navbar({ onMenuToggle }) {
           <MenuIcon />
         </button>
         <span className="text-base font-semibold text-gray-900 dark:text-gray-100 tracking-tight">
-          PKI Manager
+          Certifactory
         </span>
       </div>
 
