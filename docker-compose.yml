@@ -38,10 +38,11 @@ services:
       SSL_CERT_PATH: ${SSL_CERT_PATH:-/etc/nginx/certs/cert.pem}
       SSL_KEY_PATH: ${SSL_KEY_PATH:-/etc/nginx/certs/key.pem}
     volumes:
-      - ${SSL_CERT_DIR:-./certs}:/etc/nginx/certs:ro
+      - ${SSL_CERT_DIR:-certs}:/etc/nginx/certs
     depends_on:
       - frontend
       - backend
 
 volumes:
   pgdata:
+  certs:
