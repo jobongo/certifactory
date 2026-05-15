@@ -58,7 +58,7 @@ export default function Dashboard() {
             <div className="space-y-2">
               {activity?.items?.map((log) => (
                 <div key={log.id} className="text-sm text-gray-600 dark:text-gray-400">
-                  <span className="text-gray-900 dark:text-gray-200">{log.user_id?.slice(0, 8)}</span>
+                  <span className="text-gray-900 dark:text-gray-200">{log.username || log.user_id?.slice(0, 8)}</span>
                   {' '}{log.action.replace(/_/g, ' ')} — {new Date(log.created_at).toLocaleString()}
                 </div>
               ))}
