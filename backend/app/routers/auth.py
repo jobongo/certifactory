@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.orm import Session
 from app.dependencies import get_current_user, get_db
 from app.models import User, AuditAction, AuditResourceType
@@ -11,13 +11,13 @@ auth_service = AuthService()
 audit_service = AuditService()
 
 @router.post("/login", response_model=TokenResponse)
-def login(body: LoginRequest, db: Session = Depends(get_db)):
+def login(body: LoginRequest, request: Request, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.username == body.username).first()
     if not user or not auth_service.verify_password(body.password, user.password_hash):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
     if not user.is_active:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Account disabled")
-    audit_service.log(db, user.id, AuditAction.login, AuditResourceType.user, user.id)
+    audit_service.log(db, user.id, AuditAction.login, AuditResourceType.user, user.id, ip_address=request.client.host)
     return TokenResponse(
         access_token=auth_service.create_access_token(user.id, user.role.value),
         refresh_token=auth_service.create_refresh_token(user.id, user.role.value),

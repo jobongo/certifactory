@@ -38,10 +38,11 @@ export default function AuditLog() {
 
   const columns = [
     { key: 'created_at', label: 'Timestamp', render: (val) => new Date(val).toLocaleString() },
+    { key: 'username', label: 'User' },
     { key: 'action', label: 'Action', render: (val) => val.replace(/_/g, ' ') },
-    { key: 'resource_type', label: 'Resource Type' },
-    { key: 'resource_id', label: 'Resource ID', render: (val) => val?.slice(0, 8) + '...' },
-    { key: 'ip_address', label: 'IP' },
+    { key: 'resource_type', label: 'Resource' },
+    { key: 'resource_name', label: 'Name', render: (val) => val || '—' },
+    { key: 'ip_address', label: 'IP', render: (val) => val || '—' },
   ]
 
   return (
