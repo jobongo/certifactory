@@ -10,6 +10,7 @@ import StatusBadge from '../../components/shared/StatusBadge'
 import CertChain from '../../components/shared/CertChain'
 import CreateCAModal from '../../components/forms/CreateCAModal'
 import { useAuth } from '../../hooks/useAuth'
+import { DownloadIcon } from '../../utils/icons'
 
 export default function CADetail() {
   const { id } = useParams()
@@ -50,6 +51,20 @@ export default function CADetail() {
             <div><span className="text-gray-500 dark:text-gray-400">Valid Until:</span> <span className="ml-2">{new Date(ca.not_after).toLocaleDateString()}</span></div>
             <div><span className="text-gray-500 dark:text-gray-400">Algorithm:</span> <span className="ml-2">{ca.key_algorithm} {ca.key_size}</span></div>
             <div><span className="text-gray-500 dark:text-gray-400">Type:</span> <span className="ml-2">{ca.type}</span></div>
+          </div>
+          <div className="border-t border-gray-200 dark:border-gray-800 pt-4 mt-4">
+            <span className="text-gray-500 dark:text-gray-400 block mb-2">Download</span>
+            <div className="flex gap-2">
+              <Button variant="secondary" size="sm" onClick={() => {
+                const blob = new Blob([ca.certificate_pem], { type: 'application/x-pem-file' })
+                const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `${ca.name}.pem`; a.click(); URL.revokeObjectURL(a.href)
+              }}><DownloadIcon className="w-4 h-4" /> Certificate PEM</Button>
+              <Button variant="secondary" size="sm" onClick={() => {
+                const chainPem = chain?.chain?.join('\n') || ca.certificate_pem
+                const blob = new Blob([chainPem], { type: 'application/x-pem-file' })
+                const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `${ca.name}-chain.pem`; a.click(); URL.revokeObjectURL(a.href)
+              }}><DownloadIcon className="w-4 h-4" /> Full Chain</Button>
+            </div>
           </div>
         </div>
       ),
