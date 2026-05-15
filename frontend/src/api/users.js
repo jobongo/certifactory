@@ -23,3 +23,8 @@ export const updateUser = async (id, userData) => {
 export const deleteUser = async (id) => {
   await client.delete(`/users/${id}`)
 }
+
+export const resetUserPassword = async (id, password) => {
+  const { data } = await client.put(`/users/${id}/reset-password`, { password })
+  return data
+}

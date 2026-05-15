@@ -48,6 +48,7 @@ export default function Navbar({ onMenuToggle }) {
             </button>
           }
         >
+          <DropdownItem onClick={() => navigate('/profile')}>Profile</DropdownItem>
           <DropdownItem onClick={handleLogout}>Logout</DropdownItem>
         </Dropdown>
       </div>

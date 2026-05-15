@@ -10,6 +10,7 @@ import CertificateDetail from './pages/certificates/CertificateDetail'
 import PendingRequests from './pages/PendingRequests'
 import AuditLog from './pages/AuditLog'
 import Users from './pages/Users'
+import Profile from './pages/Profile'
 
 export default function App() {
   return (
@@ -25,6 +26,7 @@ export default function App() {
           <Route path="/pending" element={<ProtectedRoute roles={['admin', 'operator']}><PendingRequests /></ProtectedRoute>} />
           <Route path="/audit" element={<ProtectedRoute roles={['admin', 'auditor', 'operator']}><AuditLog /></ProtectedRoute>} />
           <Route path="/users" element={<ProtectedRoute roles={['admin']}><Users /></ProtectedRoute>} />
+          <Route path="/profile" element={<Profile />} />
         </Route>
       </Routes>
     </BrowserRouter>

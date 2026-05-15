@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { getUsers, createUser, updateUser, deleteUser } from '../api/users'
+import { getUsers, createUser, updateUser, deleteUser, resetUserPassword } from '../api/users'
 import Table from '../components/ui/Table'
 import Button from '../components/ui/Button'
 import Modal from '../components/ui/Modal'
@@ -15,6 +15,10 @@ export default function Users() {
   const [showCreate, setShowCreate] = useState(false)
   const [form, setForm] = useState({ username: '', email: '', password: '', role: 'requester' })
   const [error, setError] = useState('')
+  const [showResetPassword, setShowResetPassword] = useState(false)
+  const [resetUserId, setResetUserId] = useState(null)
+  const [resetPassword, setResetPassword] = useState('')
+  const [resetError, setResetError] = useState('')
 
   const create = useMutation({
     mutationFn: createUser,
@@ -30,6 +34,12 @@ export default function Users() {
   const deactivate = useMutation({
     mutationFn: deleteUser,
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['users'] }),
+  })
+
+  const resetPw = useMutation({
+    mutationFn: () => resetUserPassword(resetUserId, resetPassword),
+    onSuccess: () => { setShowResetPassword(false); setResetPassword(''); setResetError('') },
+    onError: (err) => setResetError(err.response?.data?.detail || 'Failed to reset password'),
   })
 
   const roleOptions = [
@@ -52,11 +62,18 @@ export default function Users() {
     { key: 'is_active', label: 'Status', render: (val) => <Badge variant={val ? 'success' : 'danger'}>{val ? 'Active' : 'Inactive'}</Badge> },
     {
       key: 'id', label: '',
-      render: (_, row) => row.is_active ? (
-        <Button variant="ghost" size="sm" onClick={() => { if (confirm('Deactivate this user?')) deactivate.mutate(row.id) }}>
-          Deactivate
-        </Button>
-      ) : null,
+      render: (_, row) => (
+        <div className="flex gap-1">
+          <Button variant="ghost" size="sm" onClick={() => { setResetUserId(row.id); setShowResetPassword(true) }}>
+            Reset Password
+          </Button>
+          {row.is_active && (
+            <Button variant="ghost" size="sm" onClick={() => { if (confirm('Deactivate this user?')) deactivate.mutate(row.id) }}>
+              Deactivate
+            </Button>
+          )}
+        </div>
+      ),
     },
   ]
 
@@ -79,6 +96,16 @@ export default function Users() {
           <div className="flex gap-2 justify-end">
             <Button variant="secondary" type="button" onClick={() => setShowCreate(false)}>Cancel</Button>
             <Button type="submit" disabled={create.isPending}>Create</Button>
+          </div>
+        </form>
+      </Modal>
+      <Modal isOpen={showResetPassword} onClose={() => { setShowResetPassword(false); setResetPassword(''); setResetError('') }} title="Reset User Password">
+        <form onSubmit={(e) => { e.preventDefault(); resetPw.mutate() }} className="space-y-4">
+          <Input label="New Password" type="password" value={resetPassword} onChange={(e) => setResetPassword(e.target.value)} required />
+          {resetError && <p className="text-sm text-red-500">{resetError}</p>}
+          <div className="flex gap-2 justify-end">
+            <Button variant="secondary" type="button" onClick={() => { setShowResetPassword(false); setResetPassword('') }}>Cancel</Button>
+            <Button type="submit" disabled={resetPw.isPending}>{resetPw.isPending ? 'Resetting...' : 'Reset Password'}</Button>
           </div>
         </form>
       </Modal>
