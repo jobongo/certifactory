@@ -83,9 +83,7 @@ export default function Users() {
         <h1 className="text-xl font-semibold text-gray-900 dark:text-gray-100">Users</h1>
         <Button onClick={() => setShowCreate(true)}><PlusIcon className="w-4 h-4" /> Create User</Button>
       </div>
-      {isLoading ? <div className="text-center py-8 text-gray-400">Loading...</div> : (
-        <Table columns={columns} data={data?.items || []} />
-      )}
+      <Table columns={columns} data={data?.items || []} hideEmpty={isLoading} />
       <Modal isOpen={showCreate} onClose={() => setShowCreate(false)} title="Create User">
         <form onSubmit={(e) => { e.preventDefault(); setError(''); create.mutate(form) }} className="space-y-4">
           <Input label="Username" value={form.username} onChange={(e) => setForm({ ...form, username: e.target.value })} required />

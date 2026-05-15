@@ -26,7 +26,7 @@ export default function CertificateList() {
   if (caId) params.ca_id = caId
   if (status) params.status = status
 
-  const { data: certs, isLoading } = useQuery({ queryKey: ['certificates', params], queryFn: () => getCertificates(params) })
+  const { data: certs, isLoading } = useQuery({ queryKey: ['certificates', params], queryFn: () => getCertificates(params), placeholderData: (prev) => prev })
   const { data: cas } = useQuery({ queryKey: ['cas-select'], queryFn: () => getCAs(1, 100) })
 
   const caOptions = [{ value: '', label: 'All CAs' }, ...(cas?.items?.map((ca) => ({ value: ca.id, label: ca.name })) || [])]
@@ -61,19 +61,13 @@ export default function CertificateList() {
         <Select options={statusOptions} value={status} onChange={(e) => { setStatus(e.target.value); setPage(1) }} className="w-40" />
       </div>
 
-      {isLoading ? (
-        <div className="text-center py-8 text-gray-400">Loading...</div>
-      ) : (
-        <>
-          <Table columns={columns} data={certs?.items || []} onRowClick={(row) => navigate(`/certificates/${row.id}`)} />
-          {certs?.total > 25 && (
-            <div className="flex gap-2 mt-4 justify-center">
-              <Button variant="ghost" size="sm" disabled={page === 1} onClick={() => setPage(page - 1)}>Previous</Button>
-              <span className="text-sm text-gray-500 py-1.5">Page {page}</span>
-              <Button variant="ghost" size="sm" disabled={certs?.items?.length < 25} onClick={() => setPage(page + 1)}>Next</Button>
-            </div>
-          )}
-        </>
+      <Table columns={columns} data={certs?.items || []} onRowClick={(row) => navigate(`/certificates/${row.id}`)} hideEmpty={isLoading} />
+      {certs?.total > 25 && (
+        <div className="flex gap-2 mt-4 justify-center">
+          <Button variant="ghost" size="sm" disabled={page === 1} onClick={() => setPage(page - 1)}>Previous</Button>
+          <span className="text-sm text-gray-500 py-1.5">Page {page}</span>
+          <Button variant="ghost" size="sm" disabled={certs?.items?.length < 25} onClick={() => setPage(page + 1)}>Next</Button>
+        </div>
       )}
 
       <ImportCertModal isOpen={showImport} onClose={() => setShowImport(false)} />

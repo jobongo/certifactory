@@ -4,13 +4,7 @@ import { useAuth } from '../../hooks/useAuth'
 export default function ProtectedRoute({ children, roles }) {
   const { user, loading, isAuthenticated } = useAuth()
 
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-white dark:bg-surface-1">
-        <div className="text-gray-400">Loading...</div>
-      </div>
-    )
-  }
+  if (loading) return null
 
   if (!isAuthenticated) return <Navigate to="/login" replace />
 

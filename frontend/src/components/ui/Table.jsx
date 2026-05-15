@@ -1,4 +1,4 @@
-export default function Table({ columns, data, onRowClick }) {
+export default function Table({ columns, data, onRowClick, hideEmpty = false }) {
   return (
     <div className="overflow-x-auto">
       <table className="w-full text-sm">
@@ -27,7 +27,7 @@ export default function Table({ columns, data, onRowClick }) {
           ))}
         </tbody>
       </table>
-      {data.length === 0 && (
+      {data.length === 0 && !hideEmpty && (
         <div className="text-center py-8 text-gray-400 dark:text-gray-600">No data</div>
       )}
     </div>

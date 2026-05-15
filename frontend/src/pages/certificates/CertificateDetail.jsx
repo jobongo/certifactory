@@ -65,8 +65,7 @@ export default function CertificateDetail() {
     setPassphrase('')
   }
 
-  if (isLoading) return <div className="text-gray-400 py-8">Loading...</div>
-  if (!cert) return <div className="text-gray-400 py-8">Certificate not found</div>
+  if (!cert) return <div className="text-gray-400 py-8">{isLoading ? '' : 'Certificate not found'}</div>
 
   const isAdmin = user?.role === 'admin' || user?.role === 'operator'
   const revokeReasons = [

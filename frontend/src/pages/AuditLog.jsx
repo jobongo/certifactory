@@ -24,7 +24,7 @@ export default function AuditLog() {
   const params = { page, per_page: 25 }
   if (action) params.action = action
 
-  const { data, isLoading } = useQuery({ queryKey: ['audit', params], queryFn: () => getAuditLogs(params) })
+  const { data, isLoading } = useQuery({ queryKey: ['audit', params], queryFn: () => getAuditLogs(params), placeholderData: (prev) => prev })
 
   const handleExport = async () => {
     const blob = await exportAuditLogs(action ? { action } : {})
@@ -54,17 +54,13 @@ export default function AuditLog() {
       <div className="flex gap-3 mb-4">
         <Select options={actionOptions} value={action} onChange={(e) => { setAction(e.target.value); setPage(1) }} className="w-48" />
       </div>
-      {isLoading ? <div className="text-center py-8 text-gray-400">Loading...</div> : (
-        <>
-          <Table columns={columns} data={data?.items || []} />
-          {data?.total > 25 && (
-            <div className="flex gap-2 mt-4 justify-center">
-              <Button variant="ghost" size="sm" disabled={page === 1} onClick={() => setPage(page - 1)}>Previous</Button>
-              <span className="text-sm text-gray-500 py-1.5">Page {page}</span>
-              <Button variant="ghost" size="sm" disabled={data?.items?.length < 25} onClick={() => setPage(page + 1)}>Next</Button>
-            </div>
-          )}
-        </>
+      <Table columns={columns} data={data?.items || []} hideEmpty={isLoading} />
+      {data?.total > 25 && (
+        <div className="flex gap-2 mt-4 justify-center">
+          <Button variant="ghost" size="sm" disabled={page === 1} onClick={() => setPage(page - 1)}>Previous</Button>
+          <span className="text-sm text-gray-500 py-1.5">Page {page}</span>
+          <Button variant="ghost" size="sm" disabled={data?.items?.length < 25} onClick={() => setPage(page + 1)}>Next</Button>
+        </div>
       )}
     </div>
   )

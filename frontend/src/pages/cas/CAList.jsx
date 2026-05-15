@@ -72,10 +72,8 @@ export default function CAList() {
         </div>
       </div>
 
-      {isLoading ? (
-        <div className="text-center py-8 text-gray-400">Loading...</div>
-      ) : view === 'table' ? (
-        <Table columns={columns} data={cas?.items || []} onRowClick={(row) => navigate(`/cas/${row.id}`)} />
+      {view === 'table' ? (
+        <Table columns={columns} data={cas?.items || []} onRowClick={(row) => navigate(`/cas/${row.id}`)} hideEmpty={isLoading} />
       ) : (
         <div className="bg-white dark:bg-surface-3 rounded-lg border border-gray-200 dark:border-gray-800 py-2">
           {tree?.map((node) => <TreeNode key={node.id} node={node} />)}

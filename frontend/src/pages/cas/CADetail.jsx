@@ -28,8 +28,7 @@ export default function CADetail() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['ca', id] }),
   })
 
-  if (isLoading) return <div className="text-gray-400 py-8">Loading...</div>
-  if (!ca) return <div className="text-gray-400 py-8">CA not found</div>
+  if (!ca) return <div className="text-gray-400 py-8">{isLoading ? '' : 'CA not found'}</div>
 
   const certColumns = [
     { key: 'subject_dn', label: 'Subject' },

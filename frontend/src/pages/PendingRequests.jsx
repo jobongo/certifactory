@@ -17,8 +17,6 @@ export default function PendingRequests() {
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['pending'] }); queryClient.invalidateQueries({ queryKey: ['dashboard-stats'] }) },
   })
 
-  if (isLoading) return <div className="text-gray-400 py-8">Loading...</div>
-
   return (
     <div>
       <h1 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-6">Pending Requests</h1>
