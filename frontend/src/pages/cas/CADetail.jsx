@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { getCA, getCAChain, disableCA, enableCA, updateCA } from '../../api/cas'
+import { getCA, getCAChain, disableCA, enableCA, updateCA, deleteCA } from '../../api/cas'
 import { getCertificates } from '../../api/certificates'
 import Tabs from '../../components/ui/Tabs'
 import Table from '../../components/ui/Table'
@@ -18,6 +18,7 @@ export default function CADetail() {
   const { user } = useAuth()
   const queryClient = useQueryClient()
   const [showIntermediate, setShowIntermediate] = useState(false)
+  const [deleteError, setDeleteError] = useState('')
 
   const { data: ca, isLoading } = useQuery({ queryKey: ['ca', id], queryFn: () => getCA(id) })
   const { data: chain } = useQuery({ queryKey: ['ca-chain', id], queryFn: () => getCAChain(id) })
@@ -26,6 +27,24 @@ export default function CADetail() {
   const toggleStatus = useMutation({
     mutationFn: () => ca?.status === 'active' ? disableCA(id) : enableCA(id),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['ca', id] }),
+  })
+
+  const deleteMutation = useMutation({
+    mutationFn: (force) => deleteCA(id, force),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['cas'] })
+      navigate('/cas')
+    },
+    onError: (err) => {
+      const detail = err.response?.data?.detail || 'Failed to delete CA'
+      if (detail.includes('force=true')) {
+        if (confirm(`${detail}\n\nDo you want to force delete? This will revoke all certificates and remove child CAs.`)) {
+          deleteMutation.mutate(true)
+        }
+      } else {
+        setDeleteError(detail)
+      }
+    },
   })
 
   if (!ca) return <div className="text-gray-400 py-8">{isLoading ? '' : 'CA not found'}</div>
@@ -94,12 +113,20 @@ export default function CADetail() {
         <div className="flex gap-2">
           <Button variant="secondary" onClick={() => setShowIntermediate(true)}>Create Intermediate</Button>
           {user?.role === 'admin' && (
-            <Button variant={ca.status === 'active' ? 'danger' : 'primary'} onClick={() => toggleStatus.mutate()}>
-              {ca.status === 'active' ? 'Disable' : 'Enable'}
-            </Button>
+            <>
+              <Button variant={ca.status === 'active' ? 'danger' : 'primary'} onClick={() => toggleStatus.mutate()}>
+                {ca.status === 'active' ? 'Disable' : 'Enable'}
+              </Button>
+              <Button variant="danger" onClick={() => {
+                if (confirm(`Delete CA "${ca.name}"? This cannot be undone.`)) deleteMutation.mutate(false)
+              }}>
+                Delete
+              </Button>
+            </>
           )}
         </div>
       </div>
+      {deleteError && <p className="text-sm text-red-500 mb-4">{deleteError}</p>}
       <div className="bg-white dark:bg-surface-3 rounded-lg border border-gray-200 dark:border-gray-800 p-4">
         <Tabs tabs={tabs} />
       </div>

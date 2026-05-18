@@ -8,7 +8,10 @@ from app.models import (
     AuditResourceType,
     CAStatus,
     CAType,
+    Certificate,
     CertificateAuthority,
+    CertificateRevocationList,
+    CertificateStatus,
     KeyAlgorithm,
     OCSPSigningMode,
 )
@@ -122,6 +125,40 @@ class CAService:
             if ca.parent_ca_id is None:
                 roots.append(build_node(ca))
         return roots
+
+    def delete_ca(self, db: Session, user_id: str, ca_id: str, force: bool = False) -> None:
+        ca = db.query(CertificateAuthority).filter(CertificateAuthority.id == ca_id).first()
+        if not ca:
+            raise ValueError("CA not found")
+
+        children = db.query(CertificateAuthority).filter(CertificateAuthority.parent_ca_id == ca_id).all()
+        if children and not force:
+            names = ", ".join(c.name for c in children)
+            raise ValueError(f"CA has child CAs: {names}. Use force=true to delete anyway.")
+
+        active_certs = db.query(Certificate).filter(
+            Certificate.ca_id == ca_id,
+            Certificate.status == CertificateStatus.active,
+        ).all()
+        if active_certs and not force:
+            raise ValueError(f"CA has {len(active_certs)} active certificate(s). Use force=true to revoke and delete them.")
+
+        from datetime import datetime, timezone
+        for cert in db.query(Certificate).filter(Certificate.ca_id == ca_id).all():
+            if cert.status == CertificateStatus.active:
+                cert.status = CertificateStatus.revoked
+                cert.revocation_date = datetime.now(timezone.utc)
+            db.delete(cert)
+
+        for child in children:
+            self.delete_ca(db, user_id, child.id, force=True)
+
+        db.query(CertificateRevocationList).filter(CertificateRevocationList.ca_id == ca_id).delete()
+
+        ca_name = ca.name
+        db.delete(ca)
+        db.commit()
+        audit.log(db, user_id, AuditAction.deleted_ca, AuditResourceType.ca, ca_id, {"name": ca_name})
 
     def get_chain(self, db: Session, ca_id: str) -> list[str]:
         chain = []

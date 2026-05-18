@@ -124,6 +124,19 @@ def get_ca_chain(
     return {"chain": chain}
 
 
+@router.delete("/{ca_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_ca(
+    ca_id: str,
+    force: bool = Query(False),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(UserRole.admin)),
+):
+    try:
+        ca_service.delete_ca(db, current_user.id, ca_id, force=force)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
 @router.post("/{ca_id}/disable", response_model=CAResponse)
 def disable_ca(
     ca_id: str,

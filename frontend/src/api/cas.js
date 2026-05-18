@@ -44,3 +44,7 @@ export const enableCA = async (id) => {
   const { data } = await client.post(`/cas/${id}/enable`)
   return data
 }
+
+export const deleteCA = async (id, force = false) => {
+  await client.delete(`/cas/${id}`, { params: { force } })
+}
