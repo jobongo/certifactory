@@ -88,6 +88,25 @@ async def import_certificate(
     return cert
 
 
+@router.delete("/{cert_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_certificate(
+    cert_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(UserRole.admin, UserRole.operator)),
+):
+    cert = db.query(Certificate).filter(Certificate.id == cert_id).first()
+    if not cert:
+        raise HTTPException(status_code=404, detail="Certificate not found")
+    if cert.status == CertificateStatus.active:
+        raise HTTPException(status_code=400, detail="Cannot delete an active certificate. Revoke it first.")
+    from app.models import AuditAction, AuditResourceType
+    from app.services.audit_service import AuditService
+    cert_dn = cert.subject_dn
+    db.delete(cert)
+    db.commit()
+    AuditService().log(db, current_user.id, AuditAction.revoked_cert, AuditResourceType.certificate, cert_id, {"name": cert_dn, "action": "deleted"})
+
+
 @router.get("/{cert_id}", response_model=CertificateResponse)
 def get_certificate(
     cert_id: str,

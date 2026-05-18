@@ -6,6 +6,7 @@ import { getCertificates } from '../../api/certificates'
 import Tabs from '../../components/ui/Tabs'
 import Table from '../../components/ui/Table'
 import Button from '../../components/ui/Button'
+import Modal from '../../components/ui/Modal'
 import StatusBadge from '../../components/shared/StatusBadge'
 import CertChain from '../../components/shared/CertChain'
 import CreateCAModal from '../../components/forms/CreateCAModal'
@@ -18,7 +19,10 @@ export default function CADetail() {
   const { user } = useAuth()
   const queryClient = useQueryClient()
   const [showIntermediate, setShowIntermediate] = useState(false)
+  const [showDelete, setShowDelete] = useState(false)
+  const [showForceDelete, setShowForceDelete] = useState(false)
   const [deleteError, setDeleteError] = useState('')
+  const [forceDeleteMessage, setForceDeleteMessage] = useState('')
 
   const { data: ca, isLoading } = useQuery({ queryKey: ['ca', id], queryFn: () => getCA(id) })
   const { data: chain } = useQuery({ queryKey: ['ca-chain', id], queryFn: () => getCAChain(id) })
@@ -38,9 +42,9 @@ export default function CADetail() {
     onError: (err) => {
       const detail = err.response?.data?.detail || 'Failed to delete CA'
       if (detail.includes('force=true')) {
-        if (confirm(`${detail}\n\nDo you want to force delete? This will revoke all certificates and remove child CAs.`)) {
-          deleteMutation.mutate(true)
-        }
+        setShowDelete(false)
+        setForceDeleteMessage(detail)
+        setShowForceDelete(true)
       } else {
         setDeleteError(detail)
       }
@@ -117,9 +121,7 @@ export default function CADetail() {
               <Button variant={ca.status === 'active' ? 'danger' : 'primary'} onClick={() => toggleStatus.mutate()}>
                 {ca.status === 'active' ? 'Disable' : 'Enable'}
               </Button>
-              <Button variant="danger" onClick={() => {
-                if (confirm(`Delete CA "${ca.name}"? This cannot be undone.`)) deleteMutation.mutate(false)
-              }}>
+              <Button variant="danger" onClick={() => setShowDelete(true)}>
                 Delete
               </Button>
             </>
@@ -131,6 +133,34 @@ export default function CADetail() {
         <Tabs tabs={tabs} />
       </div>
       <CreateCAModal isOpen={showIntermediate} onClose={() => setShowIntermediate(false)} parentId={id} />
+
+      <Modal isOpen={showDelete} onClose={() => setShowDelete(false)} title="Delete CA">
+        <div className="space-y-4">
+          <p className="text-sm text-gray-700 dark:text-gray-300">
+            Are you sure you want to delete <strong>{ca.name}</strong>? This cannot be undone.
+          </p>
+          {deleteError && <p className="text-sm text-red-500">{deleteError}</p>}
+          <div className="flex gap-2 justify-end">
+            <Button variant="secondary" onClick={() => { setShowDelete(false); setDeleteError('') }}>Cancel</Button>
+            <Button variant="danger" onClick={() => deleteMutation.mutate(false)} disabled={deleteMutation.isPending}>
+              {deleteMutation.isPending ? 'Deleting...' : 'Delete'}
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      <Modal isOpen={showForceDelete} onClose={() => setShowForceDelete(false)} title="Force Delete CA">
+        <div className="space-y-4">
+          <p className="text-sm text-gray-700 dark:text-gray-300">{forceDeleteMessage}</p>
+          <p className="text-sm text-red-500 font-medium">This will revoke all certificates and remove all child CAs. This cannot be undone.</p>
+          <div className="flex gap-2 justify-end">
+            <Button variant="secondary" onClick={() => setShowForceDelete(false)}>Cancel</Button>
+            <Button variant="danger" onClick={() => { setShowForceDelete(false); deleteMutation.mutate(true) }} disabled={deleteMutation.isPending}>
+              {deleteMutation.isPending ? 'Deleting...' : 'Force Delete'}
+            </Button>
+          </div>
+        </div>
+      </Modal>
     </div>
   )
 }

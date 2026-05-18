@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { getCertificate, revokeCert, renewCert, downloadCert, approveCert, denyCert } from '../../api/certificates'
+import { getCertificate, revokeCert, renewCert, downloadCert, approveCert, denyCert, deleteCert } from '../../api/certificates'
 import Button from '../../components/ui/Button'
 import Modal from '../../components/ui/Modal'
 import Input from '../../components/ui/Input'
@@ -19,6 +19,8 @@ export default function CertificateDetail() {
   const [revokeReason, setRevokeReason] = useState('unspecified')
   const [showPkcs12, setShowPkcs12] = useState(false)
   const [passphrase, setPassphrase] = useState('')
+  const [showDeleteModal, setShowDeleteModal] = useState(false)
+  const [deleteError, setDeleteError] = useState('')
 
   const { data: cert, isLoading } = useQuery({ queryKey: ['certificate', id], queryFn: () => getCertificate(id) })
 
@@ -40,6 +42,15 @@ export default function CertificateDetail() {
   const deny = useMutation({
     mutationFn: () => denyCert(id),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['certificate', id] }),
+  })
+
+  const deleteMutation = useMutation({
+    mutationFn: () => deleteCert(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['certificates'] })
+      navigate('/certificates')
+    },
+    onError: (err) => setDeleteError(err.response?.data?.detail || 'Failed to delete certificate'),
   })
 
   const handleDownload = async (format) => {
@@ -94,6 +105,9 @@ export default function CertificateDetail() {
               <Button variant="danger" onClick={() => deny.mutate()}>Deny</Button>
             </>
           )}
+          {['revoked', 'expired', 'denied'].includes(cert.status) && isAdmin && (
+            <Button variant="danger" onClick={() => setShowDeleteModal(true)}>Delete</Button>
+          )}
         </div>
       </div>
 
@@ -146,6 +160,22 @@ export default function CertificateDetail() {
           <div className="flex gap-2 justify-end">
             <Button variant="secondary" onClick={() => setShowPkcs12(false)}>Cancel</Button>
             <Button onClick={handlePkcs12Download}>Download</Button>
+          </div>
+        </div>
+      </Modal>
+
+      <Modal isOpen={showDeleteModal} onClose={() => { setShowDeleteModal(false); setDeleteError('') }} title="Delete Certificate">
+        <div className="space-y-4">
+          <p className="text-sm text-gray-700 dark:text-gray-300">
+            Are you sure you want to delete this certificate? This cannot be undone.
+          </p>
+          <p className="text-xs text-gray-500 dark:text-gray-400 font-mono">{cert.subject_dn}</p>
+          {deleteError && <p className="text-sm text-red-500">{deleteError}</p>}
+          <div className="flex gap-2 justify-end">
+            <Button variant="secondary" onClick={() => { setShowDeleteModal(false); setDeleteError('') }}>Cancel</Button>
+            <Button variant="danger" onClick={() => deleteMutation.mutate()} disabled={deleteMutation.isPending}>
+              {deleteMutation.isPending ? 'Deleting...' : 'Delete'}
+            </Button>
           </div>
         </div>
       </Modal>

@@ -40,6 +40,10 @@ export const renewCert = async (id) => {
   return data
 }
 
+export const deleteCert = async (id) => {
+  await client.delete(`/certificates/${id}`)
+}
+
 export const downloadCert = async (id, format, passphrase) => {
   const params = { format }
   if (passphrase) params.passphrase = passphrase
