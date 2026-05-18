@@ -19,6 +19,8 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
+    connection = op.get_bind()
+    connection.execution_options(isolation_level="AUTOCOMMIT")
     op.execute("ALTER TYPE auditaction ADD VALUE IF NOT EXISTS 'deleted_ca'")
     op.execute("ALTER TYPE auditaction ADD VALUE IF NOT EXISTS 'imported_ca'")
     op.execute("ALTER TYPE auditaction ADD VALUE IF NOT EXISTS 'imported_cert'")
