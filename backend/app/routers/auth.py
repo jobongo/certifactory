@@ -17,7 +17,8 @@ def login(body: LoginRequest, request: Request, db: Session = Depends(get_db)):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
     if not user.is_active:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Account disabled")
-    audit_service.log(db, user.id, AuditAction.login, AuditResourceType.user, user.id, ip_address=request.client.host)
+    client_ip = request.headers.get("x-forwarded-for", "").split(",")[0].strip() or request.client.host
+    audit_service.log(db, user.id, AuditAction.login, AuditResourceType.user, user.id, ip_address=client_ip)
     return TokenResponse(
         access_token=auth_service.create_access_token(user.id, user.role.value),
         refresh_token=auth_service.create_refresh_token(user.id, user.role.value),

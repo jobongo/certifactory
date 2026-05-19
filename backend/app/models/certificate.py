@@ -66,3 +66,7 @@ class Certificate(Base):
     ca = relationship("CertificateAuthority", backref="certificates")
     requester = relationship("User", foreign_keys=[requested_by])
     approver = relationship("User", foreign_keys=[approved_by])
+
+    @property
+    def has_private_key(self) -> bool:
+        return self.private_key_encrypted is not None

@@ -56,6 +56,7 @@ class CertificateResponse(BaseModel):
     revocation_reason: str | None
     requested_by: str
     approved_by: str | None
+    has_private_key: bool = False
     created_at: datetime
 
     model_config = {"from_attributes": True}

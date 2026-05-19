@@ -1,6 +1,7 @@
 services:
   db:
     image: postgres:16-alpine
+    restart: unless-stopped
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-certifactory}
       POSTGRES_USER: ${POSTGRES_USER:-certifactory}
@@ -15,6 +16,7 @@ services:
 
   backend:
     build: ./backend
+    restart: unless-stopped
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:-certifactory}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-certifactory}
       PKI_MASTER_KEY: ${PKI_MASTER_KEY:?Set PKI_MASTER_KEY in .env}
@@ -26,11 +28,13 @@ services:
 
   frontend:
     build: ./frontend
+    restart: unless-stopped
     depends_on:
       - backend
 
   proxy:
     build: ./proxy
+    restart: unless-stopped
     ports:
       - "${HTTP_PORT:-80}:80"
       - "${HTTPS_PORT:-443}:443"

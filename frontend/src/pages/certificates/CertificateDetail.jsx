@@ -53,23 +53,41 @@ export default function CertificateDetail() {
     onError: (err) => setDeleteError(err.response?.data?.detail || 'Failed to delete certificate'),
   })
 
+  const getCN = () => {
+    const match = cert?.subject_dn?.match(/CN=([^,]+)/)
+    return match ? match[1].replace(/[^a-zA-Z0-9._-]/g, '_') : 'certificate'
+  }
+
   const handleDownload = async (format) => {
     if (format === 'pkcs12') { setShowPkcs12(true); return }
+    const cn = getCN()
     const blob = await downloadCert(id, format)
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = `certificate.${format === 'der' ? 'der' : 'pem'}`
+    a.download = `${cn}.${format === 'der' ? 'der' : 'pem'}`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  const handleKeyDownload = async () => {
+    const cn = getCN()
+    const blob = await downloadCert(id, 'pem', null, true)
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `${cn}.key`
     a.click()
     URL.revokeObjectURL(url)
   }
 
   const handlePkcs12Download = async () => {
+    const cn = getCN()
     const blob = await downloadCert(id, 'pkcs12', passphrase)
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = 'certificate.p12'
+    a.download = `${cn}.p12`
     a.click()
     URL.revokeObjectURL(url)
     setShowPkcs12(false)
@@ -134,12 +152,18 @@ export default function CertificateDetail() {
 
         {cert.certificate_pem && (
           <div className="border-t border-gray-200 dark:border-gray-800 pt-4">
-            <span className="text-gray-500 dark:text-gray-400 block mb-2">Download</span>
+            <span className="text-gray-500 dark:text-gray-400 block mb-2">Download Certificate</span>
             <div className="flex gap-2">
               <Button variant="secondary" size="sm" onClick={() => handleDownload('pem')}><DownloadIcon className="w-4 h-4" /> PEM</Button>
               <Button variant="secondary" size="sm" onClick={() => handleDownload('der')}><DownloadIcon className="w-4 h-4" /> DER</Button>
               <Button variant="secondary" size="sm" onClick={() => handleDownload('pkcs12')}><DownloadIcon className="w-4 h-4" /> PKCS12</Button>
             </div>
+            {cert.has_private_key && (
+              <div className="mt-3">
+                <span className="text-gray-500 dark:text-gray-400 block mb-2">Download Private Key</span>
+                <Button variant="secondary" size="sm" onClick={handleKeyDownload}><DownloadIcon className="w-4 h-4" /> Private Key (PEM)</Button>
+              </div>
+            )}
           </div>
         )}
       </div>

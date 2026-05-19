@@ -202,10 +202,16 @@ class CertificateService:
         audit.log(db, user_id, AuditAction.renewed_cert, AuditResourceType.certificate, new_cert.id, {"renewed_from": cert_id})
         return new_cert
 
-    def download(self, cert_id: str, fmt: str, db: Session, passphrase: str | None = None) -> bytes:
+    def download(self, cert_id: str, fmt: str, db: Session, passphrase: str | None = None, key_only: bool = False) -> bytes:
         cert = db.query(Certificate).filter(Certificate.id == cert_id).first()
         if not cert or not cert.certificate_pem:
             raise ValueError("Certificate not found or not yet issued")
+
+        if key_only:
+            if not cert.private_key_encrypted:
+                raise ValueError("No private key available for this certificate")
+            key_pem = decrypt_private_key(cert.private_key_encrypted, settings.PKI_MASTER_KEY)
+            return key_pem.encode() if isinstance(key_pem, str) else key_pem
 
         key_pem = None
         if cert.private_key_encrypted and fmt == "pkcs12":

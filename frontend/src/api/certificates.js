@@ -44,9 +44,10 @@ export const deleteCert = async (id) => {
   await client.delete(`/certificates/${id}`)
 }
 
-export const downloadCert = async (id, format, passphrase) => {
+export const downloadCert = async (id, format, passphrase, keyOnly = false) => {
   const params = { format }
   if (passphrase) params.passphrase = passphrase
+  if (keyOnly) params.key_only = true
   const { data } = await client.get(`/certificates/${id}/download`, {
     params,
     responseType: 'blob',

@@ -25,9 +25,11 @@ def list_certificates(
     ca_id: str | None = None,
     cert_status: str | None = Query(None, alias="status"),
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_role(UserRole.admin, UserRole.operator, UserRole.auditor)),
+    current_user: User = Depends(require_role(UserRole.admin, UserRole.operator, UserRole.auditor, UserRole.requester)),
 ):
     query = db.query(Certificate)
+    if current_user.role == UserRole.requester:
+        query = query.filter(Certificate.requested_by == current_user.id)
     if ca_id:
         query = query.filter(Certificate.ca_id == ca_id)
     if cert_status:
@@ -175,13 +177,21 @@ def download_certificate(
     cert_id: str,
     format: str = Query("pem", pattern="^(pem|der|pkcs12)$"),
     passphrase: str | None = None,
+    key_only: bool = Query(False),
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role(UserRole.admin, UserRole.operator, UserRole.requester)),
 ):
     try:
-        data = cert_service.download(cert_id, format, db, passphrase=passphrase)
+        data = cert_service.download(cert_id, format, db, passphrase=passphrase, key_only=key_only)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+    if key_only:
+        return Response(
+            content=data,
+            media_type="application/x-pem-file",
+            headers={"Content-Disposition": "attachment; filename=private_key.pem"},
+        )
 
     media_types = {"pem": "application/x-pem-file", "der": "application/x-x509-ca-cert", "pkcs12": "application/x-pkcs12"}
     extensions = {"pem": "pem", "der": "der", "pkcs12": "p12"}

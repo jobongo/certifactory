@@ -19,6 +19,8 @@ export default function Users() {
   const [resetUserId, setResetUserId] = useState(null)
   const [resetPassword, setResetPassword] = useState('')
   const [resetError, setResetError] = useState('')
+  const [showDeactivate, setShowDeactivate] = useState(false)
+  const [deactivateUserId, setDeactivateUserId] = useState(null)
 
   const create = useMutation({
     mutationFn: createUser,
@@ -54,7 +56,7 @@ export default function Users() {
       key: 'role', label: 'Role',
       render: (val, row) => (
         <select value={val} onChange={(e) => roleChange.mutate({ id: row.id, role: e.target.value })}
-          className="bg-transparent border border-gray-200 dark:border-gray-700 rounded px-2 py-1 text-sm">
+          className="bg-white dark:bg-surface-4 border border-gray-200 dark:border-gray-700 rounded px-2 py-1 text-sm text-gray-900 dark:text-gray-100">
           {roleOptions.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
         </select>
       ),
@@ -68,7 +70,7 @@ export default function Users() {
             Reset Password
           </Button>
           {row.is_active && (
-            <Button variant="ghost" size="sm" onClick={() => { if (confirm('Deactivate this user?')) deactivate.mutate(row.id) }}>
+            <Button variant="ghost" size="sm" onClick={() => { setDeactivateUserId(row.id); setShowDeactivate(true) }}>
               Deactivate
             </Button>
           )}
@@ -106,6 +108,15 @@ export default function Users() {
             <Button type="submit" disabled={resetPw.isPending}>{resetPw.isPending ? 'Resetting...' : 'Reset Password'}</Button>
           </div>
         </form>
+      </Modal>
+      <Modal isOpen={showDeactivate} onClose={() => setShowDeactivate(false)} title="Deactivate User">
+        <div className="space-y-4">
+          <p className="text-sm text-gray-700 dark:text-gray-300">Are you sure you want to deactivate this user?</p>
+          <div className="flex gap-2 justify-end">
+            <Button variant="secondary" onClick={() => setShowDeactivate(false)}>Cancel</Button>
+            <Button variant="danger" onClick={() => { deactivate.mutate(deactivateUserId); setShowDeactivate(false) }}>Deactivate</Button>
+          </div>
+        </div>
       </Modal>
     </div>
   )

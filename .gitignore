@@ -4,6 +4,7 @@
 *.db-wal
 __pycache__/
 .env
+.build.conf
 .venv/
 *.pyc
 *.pyo
