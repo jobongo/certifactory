@@ -5,6 +5,11 @@ export const getSettings = async () => {
   return data
 }
 
+export const getDefaults = async () => {
+  const { data } = await client.get('/settings/defaults')
+  return data
+}
+
 export const updateSettings = async (updates) => {
   const { data } = await client.put('/settings', updates)
   return data

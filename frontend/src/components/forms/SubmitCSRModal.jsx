@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { submitCSR } from '../../api/certificates'
 import { getCAs } from '../../api/cas'
+import { getDefaults } from '../../api/settings'
 import Modal from '../ui/Modal'
 import Select from '../ui/Select'
 import Input from '../ui/Input'
@@ -12,10 +13,12 @@ export default function SubmitCSRModal({ isOpen, onClose }) {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const { data: cas } = useQuery({ queryKey: ['cas-select'], queryFn: () => getCAs(1, 100), enabled: isOpen })
+  const { data: defaults } = useQuery({ queryKey: ['settings-defaults'], queryFn: getDefaults })
 
   const [csrPem, setCsrPem] = useState('')
   const [caId, setCaId] = useState('')
-  const [validityDays, setValidityDays] = useState(365)
+  const [validityDaysInput, setValidityDaysInput] = useState(null)
+  const validityDays = validityDaysInput !== null ? validityDaysInput : (defaults?.default_cert_validity_days ?? '')
   const [error, setError] = useState('')
 
   const mutation = useMutation({
@@ -29,7 +32,7 @@ export default function SubmitCSRModal({ isOpen, onClose }) {
     onError: (err) => setError(err.response?.data?.detail || 'Failed to submit CSR'),
   })
 
-  const resetForm = () => { setCsrPem(''); setCaId(''); setValidityDays(365); setError('') }
+  const resetForm = () => { setCsrPem(''); setCaId(''); setValidityDaysInput(null); setError('') }
 
   const handleFileUpload = (e) => {
     const file = e.target.files?.[0]
@@ -59,7 +62,7 @@ export default function SubmitCSRModal({ isOpen, onClose }) {
           <input type="file" accept=".pem,.csr,.req" onChange={handleFileUpload} className="mt-2 text-sm text-gray-500" />
         </div>
         <Select label="Issuing CA *" options={caOptions} value={caId} onChange={(e) => setCaId(e.target.value)} required />
-        <Input label="Validity (days)" type="number" value={validityDays} onChange={(e) => setValidityDays(e.target.value)} />
+        <Input label="Validity (days)" type="number" value={validityDays} onChange={(e) => setValidityDaysInput(e.target.value)} />
         {error && <p className="text-sm text-red-500">{error}</p>}
         <div className="flex gap-2 justify-end">
           <Button variant="secondary" type="button" onClick={() => { onClose(); resetForm() }}>Cancel</Button>

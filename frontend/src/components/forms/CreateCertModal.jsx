@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { createCertificate } from '../../api/certificates'
 import { getCAs } from '../../api/cas'
+import { getDefaults } from '../../api/settings'
 import Modal from '../ui/Modal'
 import SubjectDNFields from './SubjectDNFields'
 import SANFields from './SANFields'
@@ -17,6 +18,7 @@ export default function CreateCertModal({ isOpen, onClose }) {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const { data: cas } = useQuery({ queryKey: ['cas-select'], queryFn: () => getCAs(1, 100), enabled: isOpen })
+  const { data: defaults } = useQuery({ queryKey: ['settings-defaults'], queryFn: getDefaults })
 
   const [caId, setCaId] = useState('')
   const [subject, setSubject] = useState({ CN: '' })
@@ -24,7 +26,8 @@ export default function CreateCertModal({ isOpen, onClose }) {
   const [certType, setCertType] = useState('server')
   const [keyAlgorithm, setKeyAlgorithm] = useState('RSA')
   const [keySize, setKeySize] = useState(2048)
-  const [validityDays, setValidityDays] = useState(365)
+  const [validityDaysInput, setValidityDaysInput] = useState(null)
+  const validityDays = validityDaysInput !== null ? validityDaysInput : (defaults?.default_cert_validity_days ?? '')
   const [showAdvanced, setShowAdvanced] = useState(false)
   const [keyUsage, setKeyUsage] = useState([])
   const [eku, setEku] = useState([])
@@ -44,7 +47,7 @@ export default function CreateCertModal({ isOpen, onClose }) {
 
   const resetForm = () => {
     setCaId(''); setSubject({ CN: '' }); setSans([{ type: 'DNS', value: '' }])
-    setCertType('server'); setKeyAlgorithm('RSA'); setKeySize(2048); setValidityDays(365)
+    setCertType('server'); setKeyAlgorithm('RSA'); setKeySize(2048); setValidityDaysInput(null)
     setShowAdvanced(false); setKeyUsage([]); setEku([]); setCustomExts([]); setError('')
   }
 
@@ -74,7 +77,7 @@ export default function CreateCertModal({ isOpen, onClose }) {
         <div className="grid grid-cols-3 gap-4">
           <Select label="Type" options={[{ value: 'server', label: 'Server' }, { value: 'client', label: 'Client' }, { value: 'custom', label: 'Custom' }]} value={certType} onChange={(e) => setCertType(e.target.value)} />
           <Select label="Key Algorithm" options={[{ value: 'RSA', label: 'RSA' }, { value: 'EC', label: 'EC' }]} value={keyAlgorithm} onChange={(e) => setKeyAlgorithm(e.target.value)} />
-          <Input label="Validity (days)" type="number" value={validityDays} onChange={(e) => setValidityDays(e.target.value)} />
+          <Input label="Validity (days)" type="number" value={validityDays} onChange={(e) => setValidityDaysInput(e.target.value)} />
         </div>
         <button type="button" onClick={() => setShowAdvanced(!showAdvanced)} className="text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300">
           {showAdvanced ? '▾ Hide Advanced' : '▸ Show Advanced'}

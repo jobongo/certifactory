@@ -1,13 +1,21 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
-from app.dependencies import get_db, require_role
+from app.dependencies import get_current_user, get_db, require_role
 from app.models import User, UserRole
 from app.schemas.settings import SettingsDefinitionsResponse, SettingsUpdate
 from app.services.settings_service import SettingsService
 
 router = APIRouter(prefix="/api/v1/settings", tags=["settings"])
 settings_service = SettingsService()
+
+
+@router.get("/defaults")
+def get_defaults(db: Session = Depends(get_db), current_user: User = Depends(get_current_user)):
+    return {
+        "default_cert_validity_days": settings_service.get(db, "default_cert_validity_days"),
+        "default_ca_auto_approve": settings_service.get(db, "default_ca_auto_approve"),
+    }
 
 
 @router.get("", response_model=SettingsDefinitionsResponse)

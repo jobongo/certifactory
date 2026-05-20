@@ -89,6 +89,7 @@ export default function Settings() {
     mutationFn: updateSettings,
     onSuccess: (result) => {
       queryClient.setQueryData(['settings'], (old) => ({ ...old, values: result.values }))
+      queryClient.invalidateQueries({ queryKey: ['settings-defaults'] })
       setLocalValues({ ...result.values })
       setHasChanges(false)
       setSaveError('')
