@@ -18,9 +18,11 @@ from app.models import (
 from app.services.audit_service import AuditService
 from app.services.crypto_service import CryptoService
 from app.services.encryption import decrypt_private_key, encrypt_private_key
+from app.services.settings_service import SettingsService
 
 crypto = CryptoService()
 audit = AuditService()
+settings_svc = SettingsService()
 
 
 class CertificateService:
@@ -69,7 +71,7 @@ class CertificateService:
 
         serial = self._get_next_serial(db, ca.id)
 
-        validity_days = data.get("validity_days", 365)
+        validity_days = data.get("validity_days") or settings_svc.get(db, "default_cert_validity_days")
 
         cert_record = Certificate(
             ca_id=ca.id,
@@ -109,7 +111,7 @@ class CertificateService:
         self._check_duplicate_cn(db, ca.id, subject_dn)
         serial = self._get_next_serial(db, ca.id)
 
-        validity_days = data.get("validity_days", 365)
+        validity_days = data.get("validity_days") or settings_svc.get(db, "default_cert_validity_days")
 
         cert_record = Certificate(
             ca_id=ca.id,
@@ -129,7 +131,7 @@ class CertificateService:
         if ca.auto_approve:
             ca_key = decrypt_private_key(ca.private_key_encrypted, settings.PKI_MASTER_KEY)
             cert_pem = crypto.sign_csr(
-                data["csr_pem"], ca.certificate_pem, ca_key, data.get("validity_days", 365),
+                data["csr_pem"], ca.certificate_pem, ca_key, validity_days,
                 key_usage=data.get("key_usage"), extended_key_usage=data.get("extended_key_usage"),
             )
             parsed = x509.load_pem_x509_certificate(cert_pem.encode())

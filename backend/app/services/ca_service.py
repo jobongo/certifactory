@@ -18,9 +18,11 @@ from app.models import (
 from app.services.audit_service import AuditService
 from app.services.crypto_service import CryptoService
 from app.services.encryption import encrypt_private_key
+from app.services.settings_service import SettingsService
 
 crypto = CryptoService()
 audit = AuditService()
+settings_svc = SettingsService()
 
 
 class CAService:
@@ -46,7 +48,7 @@ class CAService:
             not_before=cert.not_valid_before_utc,
             not_after=cert.not_valid_after_utc,
             max_path_length=data.get("max_path_length"),
-            auto_approve=data.get("auto_approve", False),
+            auto_approve=data.get("auto_approve", settings_svc.get(db, "default_ca_auto_approve")),
             crl_distribution_url=data.get("crl_distribution_url"),
             ocsp_url=data.get("ocsp_url"),
             created_by=user_id,
@@ -93,7 +95,7 @@ class CAService:
             not_before=cert.not_valid_before_utc,
             not_after=cert.not_valid_after_utc,
             max_path_length=data.get("max_path_length", 0),
-            auto_approve=data.get("auto_approve", False),
+            auto_approve=data.get("auto_approve", settings_svc.get(db, "default_ca_auto_approve")),
             crl_distribution_url=data.get("crl_distribution_url"),
             ocsp_url=data.get("ocsp_url"),
             created_by=user_id,

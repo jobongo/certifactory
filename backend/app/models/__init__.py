@@ -15,6 +15,7 @@ from app.models.certificate import (
 from app.models.crl import CertificateRevocationList
 from app.models.audit_log import AuditLog, AuditAction, AuditResourceType
 from app.models.api_token import ApiToken
+from app.models.setting import Setting
 
 __all__ = [
     "User",
@@ -33,4 +34,5 @@ __all__ = [
     "AuditAction",
     "AuditResourceType",
     "ApiToken",
+    "Setting",
 ]

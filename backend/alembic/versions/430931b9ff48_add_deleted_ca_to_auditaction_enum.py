@@ -19,10 +19,12 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    op.execute("COMMIT")
-    op.execute("ALTER TYPE auditaction ADD VALUE IF NOT EXISTS 'deleted_ca'")
-    op.execute("ALTER TYPE auditaction ADD VALUE IF NOT EXISTS 'imported_ca'")
-    op.execute("ALTER TYPE auditaction ADD VALUE IF NOT EXISTS 'imported_cert'")
+    bind = op.get_bind()
+    if bind.dialect.name == "postgresql":
+        op.execute("COMMIT")
+        op.execute("ALTER TYPE auditaction ADD VALUE IF NOT EXISTS 'deleted_ca'")
+        op.execute("ALTER TYPE auditaction ADD VALUE IF NOT EXISTS 'imported_ca'")
+        op.execute("ALTER TYPE auditaction ADD VALUE IF NOT EXISTS 'imported_cert'")
 
 
 def downgrade() -> None:

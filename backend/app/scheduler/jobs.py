@@ -4,9 +4,12 @@ from sqlalchemy.orm import Session
 
 from app.database import SessionLocal
 from app.models import CAStatus, Certificate, CertificateAuthority, CertificateRevocationList, CertificateStatus
+from app.models.audit_log import AuditLog
 from app.services.crl_service import CRLService
+from app.services.settings_service import SettingsService
 
 crl_service = CRLService()
+settings_service = SettingsService()
 
 
 def regenerate_crls():
@@ -44,5 +47,24 @@ def check_expirations():
             cert.status = CertificateStatus.expired
         if expired:
             db.commit()
+    finally:
+        db.close()
+
+
+def cleanup_audit_logs():
+    db: Session = SessionLocal()
+    try:
+        retention_days = settings_service.get(db, "audit_retention_days")
+        cutoff = datetime.now(timezone.utc) - timedelta(days=retention_days)
+        db.query(AuditLog).filter(AuditLog.timestamp < cutoff).delete()
+        db.commit()
+    finally:
+        db.close()
+
+
+def get_crl_interval_minutes():
+    db: Session = SessionLocal()
+    try:
+        return settings_service.get(db, "crl_regen_interval_minutes")
     finally:
         db.close()

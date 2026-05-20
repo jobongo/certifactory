@@ -17,7 +17,7 @@ class CertificateCreate(BaseModel):
     type: str = "server"
     key_algorithm: str = "RSA"
     key_size: int = 2048
-    validity_days: int = 365
+    validity_days: int | None = None
     key_usage: list[str] | None = None
     extended_key_usage: list[str] | None = None
     custom_extensions: list[dict] | None = None
@@ -27,7 +27,7 @@ class CSRSubmit(BaseModel):
     ca_id: str
     csr_pem: str
     type: str = "server"
-    validity_days: int = 365
+    validity_days: int | None = None
     key_usage: list[str] | None = None
     extended_key_usage: list[str] | None = None
 

@@ -2,7 +2,7 @@ import { NavLink } from 'react-router-dom'
 import { useAuth } from '../../hooks/useAuth'
 import {
   DashboardIcon, CertificateAuthorityIcon, CertificateIcon,
-  ClockIcon, AuditIcon, UsersIcon,
+  ClockIcon, AuditIcon, UsersIcon, SettingsIcon,
 } from '../../utils/icons'
 
 const navItems = [
@@ -15,6 +15,7 @@ const navItems = [
   { section: 'Management', items: [
     { to: '/audit', icon: AuditIcon, label: 'Audit Log', roles: ['admin', 'operator', 'auditor'] },
     { to: '/users', icon: UsersIcon, label: 'Users', roles: ['admin'] },
+    { to: '/settings', icon: SettingsIcon, label: 'Settings', roles: ['admin'] },
   ]},
 ]
 

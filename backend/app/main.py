@@ -5,18 +5,20 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
-from app.routers import auth, users, audit, cas, certificates, crl, ocsp, dashboard, tokens
+from app.routers import auth, users, audit, cas, certificates, crl, ocsp, dashboard, tokens, settings as settings_router
 
 
 @asynccontextmanager
 async def lifespan(app_instance):
     if os.environ.get("TESTING") != "1":
         from apscheduler.schedulers.background import BackgroundScheduler
-        from app.scheduler.jobs import regenerate_crls, check_expirations
+        from app.scheduler.jobs import regenerate_crls, check_expirations, cleanup_audit_logs, get_crl_interval_minutes
 
+        crl_minutes = get_crl_interval_minutes()
         scheduler = BackgroundScheduler()
-        scheduler.add_job(regenerate_crls, "interval", hours=1, id="crl_regen")
+        scheduler.add_job(regenerate_crls, "interval", minutes=crl_minutes, id="crl_regen")
         scheduler.add_job(check_expirations, "interval", hours=24, id="expiry_check")
+        scheduler.add_job(cleanup_audit_logs, "interval", hours=24, id="audit_cleanup")
         scheduler.start()
         yield
         scheduler.shutdown()
@@ -43,6 +45,7 @@ app.include_router(crl.router)
 app.include_router(ocsp.router)
 app.include_router(dashboard.router)
 app.include_router(tokens.router)
+app.include_router(settings_router.router)
 
 
 @app.get("/health")

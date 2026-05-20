@@ -4,9 +4,11 @@ from app.dependencies import get_db, require_role
 from app.models import User, UserRole
 from app.schemas.user import UserCreate, UserListResponse, UserResponse, UserUpdate
 from app.services.auth_service import AuthService
+from app.services.settings_service import SettingsService
 
 router = APIRouter(prefix="/api/v1/users", tags=["users"])
 auth_service = AuthService()
+settings_service = SettingsService()
 
 @router.get("", response_model=UserListResponse)
 def list_users(page: int = Query(1, ge=1), per_page: int = Query(25, ge=1, le=100), db: Session = Depends(get_db), current_user: User = Depends(require_role(UserRole.admin))):
@@ -18,6 +20,9 @@ def list_users(page: int = Query(1, ge=1), per_page: int = Query(25, ge=1, le=10
 def create_user(body: UserCreate, db: Session = Depends(get_db), current_user: User = Depends(require_role(UserRole.admin))):
     if db.query(User).filter((User.username == body.username) | (User.email == body.email)).first():
         raise HTTPException(status_code=400, detail="Username or email already exists")
+    pw_errors = settings_service.validate_password(db, body.password)
+    if pw_errors:
+        raise HTTPException(status_code=400, detail=pw_errors[0])
     user = User(username=body.username, email=body.email, password_hash=auth_service.hash_password(body.password), role=UserRole(body.role))
     db.add(user)
     db.commit()
@@ -37,6 +42,9 @@ def reset_password(
     new_password = body.get("password")
     if not new_password:
         raise HTTPException(status_code=400, detail="Password is required")
+    pw_errors = settings_service.validate_password(db, new_password)
+    if pw_errors:
+        raise HTTPException(status_code=400, detail=pw_errors[0])
     user.password_hash = auth_service.hash_password(new_password)
     db.commit()
     return {"message": "Password reset successfully"}

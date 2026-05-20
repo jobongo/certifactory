@@ -19,9 +19,10 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    op.add_column('certificates', sa.Column('validity_days', sa.Integer(), nullable=True))
+    op.add_column('certificates', sa.Column('validity_days', sa.Integer(), nullable=True, server_default='365'))
     op.execute("UPDATE certificates SET validity_days = 365 WHERE validity_days IS NULL")
-    op.alter_column('certificates', 'validity_days', nullable=False, server_default='365')
+    if op.get_bind().dialect.name == "postgresql":
+        op.alter_column('certificates', 'validity_days', nullable=False)
 
 
 def downgrade() -> None:
