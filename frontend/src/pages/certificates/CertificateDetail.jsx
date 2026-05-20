@@ -193,7 +193,7 @@ export default function CertificateDetail() {
           <p className="text-sm text-gray-700 dark:text-gray-300">
             Are you sure you want to delete this certificate? This cannot be undone.
           </p>
-          <p className="text-xs text-gray-500 dark:text-gray-400 font-mono">{cert.subject_dn}</p>
+          <p className="text-xs text-gray-500 dark:text-gray-400 font-mono break-all">{cert.subject_dn}</p>
           {deleteError && <p className="text-sm text-red-500">{deleteError}</p>}
           <div className="flex gap-2 justify-end">
             <Button variant="secondary" onClick={() => { setShowDeleteModal(false); setDeleteError('') }}>Cancel</Button>

@@ -28,12 +28,39 @@ class CertificateService:
         count = db.query(Certificate).filter(Certificate.ca_id == ca_id).count()
         return format(count + 1, "x")
 
-    def request_certificate(self, db: Session, user_id: str, data: dict) -> Certificate:
+    def _extract_cn(self, subject_dn: str) -> str | None:
+        for part in subject_dn.split(","):
+            key, _, value = part.strip().partition("=")
+            if key.strip().upper() == "CN":
+                return value.strip()
+        return None
+
+    def _check_duplicate_cn(self, db: Session, ca_id: str, subject_dn: str):
+        cn = self._extract_cn(subject_dn)
+        if not cn:
+            return
+        existing = (
+            db.query(Certificate)
+            .filter(
+                Certificate.ca_id == ca_id,
+                Certificate.status.in_([CertificateStatus.active, CertificateStatus.pending]),
+            )
+            .all()
+        )
+        for cert in existing:
+            if self._extract_cn(cert.subject_dn) == cn:
+                raise ValueError(f"A certificate with CN={cn} already exists for this CA")
+
+    def request_certificate(self, db: Session, user_id: str, data: dict, _skip_duplicate_check: bool = False) -> Certificate:
         ca = db.query(CertificateAuthority).filter(CertificateAuthority.id == data["ca_id"]).first()
         if not ca:
             raise ValueError("CA not found")
         if ca.status != CAStatus.active:
             raise ValueError("CA is not active")
+
+        subject_dn = ", ".join(f"{k}={v}" for k, v in data["subject"].items())
+        if not _skip_duplicate_check:
+            self._check_duplicate_cn(db, ca.id, subject_dn)
 
         key_pem = crypto.generate_key(data["key_algorithm"], data["key_size"])
         subject = data["subject"]
@@ -78,6 +105,8 @@ class CertificateService:
             raise ValueError("CA is not active")
 
         csr_info = crypto.parse_csr(data["csr_pem"])
+        subject_dn = ", ".join(f"{k}={v}" for k, v in csr_info["subject"].items())
+        self._check_duplicate_cn(db, ca.id, subject_dn)
         serial = self._get_next_serial(db, ca.id)
 
         validity_days = data.get("validity_days", 365)
@@ -204,7 +233,7 @@ class CertificateService:
             "key_usage": old_cert.key_usage,
             "extended_key_usage": old_cert.extended_key_usage,
         }
-        new_cert = self.request_certificate(db, user_id, data)
+        new_cert = self.request_certificate(db, user_id, data, _skip_duplicate_check=True)
         audit.log(db, user_id, AuditAction.renewed_cert, AuditResourceType.certificate, new_cert.id, {"renewed_from": cert_id})
         return new_cert
 
