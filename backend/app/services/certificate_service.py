@@ -42,6 +42,8 @@ class CertificateService:
 
         serial = self._get_next_serial(db, ca.id)
 
+        validity_days = data.get("validity_days", 365)
+
         cert_record = Certificate(
             ca_id=ca.id,
             type=CertificateType(data["type"]),
@@ -55,11 +57,12 @@ class CertificateService:
             key_usage=data.get("key_usage"),
             extended_key_usage=data.get("extended_key_usage"),
             custom_extensions=data.get("custom_extensions"),
+            validity_days=validity_days,
             requested_by=user_id,
         )
 
         if ca.auto_approve:
-            self._sign_certificate(cert_record, ca, key_pem, data.get("validity_days", 365), user_id)
+            self._sign_certificate(cert_record, ca, key_pem, validity_days, user_id)
 
         db.add(cert_record)
         db.commit()
@@ -77,6 +80,8 @@ class CertificateService:
         csr_info = crypto.parse_csr(data["csr_pem"])
         serial = self._get_next_serial(db, ca.id)
 
+        validity_days = data.get("validity_days", 365)
+
         cert_record = Certificate(
             ca_id=ca.id,
             type=CertificateType(data["type"]),
@@ -88,6 +93,7 @@ class CertificateService:
             san=csr_info["sans"],
             key_usage=data.get("key_usage"),
             extended_key_usage=data.get("extended_key_usage"),
+            validity_days=validity_days,
             requested_by=user_id,
         )
 
@@ -140,7 +146,7 @@ class CertificateService:
 
         ca_key = decrypt_private_key(ca.private_key_encrypted, settings.PKI_MASTER_KEY)
         cert_pem = crypto.sign_csr(
-            cert.csr_pem, ca.certificate_pem, ca_key, 365,
+            cert.csr_pem, ca.certificate_pem, ca_key, cert.validity_days or 365,
             key_usage=cert.key_usage, extended_key_usage=cert.extended_key_usage,
         )
         parsed = x509.load_pem_x509_certificate(cert_pem.encode())

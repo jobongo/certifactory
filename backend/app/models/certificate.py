@@ -54,6 +54,7 @@ class Certificate(Base):
     key_usage: Mapped[list | None] = mapped_column(JSON, nullable=True)
     extended_key_usage: Mapped[list | None] = mapped_column(JSON, nullable=True)
     custom_extensions: Mapped[list | None] = mapped_column(JSON, nullable=True)
+    validity_days: Mapped[int] = mapped_column(Integer, default=365)
     revocation_date: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     revocation_reason: Mapped[RevocationReason | None] = mapped_column(Enum(RevocationReason), nullable=True)
     requested_by: Mapped[str] = mapped_column(String(36), ForeignKey("users.id"), nullable=False)
