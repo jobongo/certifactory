@@ -5,6 +5,11 @@ export const generateCRL = async (caId) => {
   return data
 }
 
+export const getCRLInfo = async (caId) => {
+  const { data } = await client.get(`/cas/${caId}/crl/info`)
+  return data
+}
+
 export const downloadCRL = async (caId) => {
   const { data } = await client.get(`/cas/${caId}/crl`, {
     responseType: 'blob',

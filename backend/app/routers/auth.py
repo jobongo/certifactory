@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.orm import Session
 from app.dependencies import get_current_user, get_db
 from app.models import User, AuditAction, AuditResourceType
-from app.schemas.auth import LoginRequest, PasswordChange, TokenResponse, UserResponse
+from app.schemas.auth import LoginRequest, PasswordChange, RefreshRequest, TokenResponse, UserResponse
 from app.services.auth_service import AuthService
 from app.services.audit_service import AuditService
 from app.services.settings_service import SettingsService
@@ -21,6 +21,21 @@ def login(body: LoginRequest, request: Request, db: Session = Depends(get_db)):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Account disabled")
     client_ip = request.headers.get("x-forwarded-for", "").split(",")[0].strip() or request.client.host
     audit_service.log(db, user.id, AuditAction.login, AuditResourceType.user, user.id, ip_address=client_ip)
+    session_timeout = settings_service.get(db, "session_timeout_minutes")
+    refresh_days = settings_service.get(db, "refresh_token_days")
+    return TokenResponse(
+        access_token=auth_service.create_access_token(user.id, user.role.value, expire_minutes=session_timeout),
+        refresh_token=auth_service.create_refresh_token(user.id, user.role.value, expire_days=refresh_days),
+    )
+
+@router.post("/refresh", response_model=TokenResponse)
+def refresh(body: RefreshRequest, db: Session = Depends(get_db)):
+    payload = auth_service.decode_token(body.refresh_token)
+    if not payload or payload.get("type") != "refresh":
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid refresh token")
+    user = db.query(User).filter(User.id == payload["sub"]).first()
+    if not user or not user.is_active:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found or inactive")
     session_timeout = settings_service.get(db, "session_timeout_minutes")
     refresh_days = settings_service.get(db, "refresh_token_days")
     return TokenResponse(

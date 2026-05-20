@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { getCA, getCAChain, disableCA, enableCA, updateCA, deleteCA } from '../../api/cas'
 import { getCertificates } from '../../api/certificates'
+import { generateCRL, downloadCRL, getCRLInfo } from '../../api/crl'
 import Tabs from '../../components/ui/Tabs'
 import Table from '../../components/ui/Table'
 import Button from '../../components/ui/Button'
@@ -27,11 +28,26 @@ export default function CADetail() {
   const { data: ca, isLoading } = useQuery({ queryKey: ['ca', id], queryFn: () => getCA(id) })
   const { data: chain } = useQuery({ queryKey: ['ca-chain', id], queryFn: () => getCAChain(id) })
   const { data: certs } = useQuery({ queryKey: ['ca-certs', id], queryFn: () => getCertificates({ ca_id: id }) })
+  const { data: crlInfo } = useQuery({ queryKey: ['crl-info', id], queryFn: () => getCRLInfo(id) })
 
   const toggleStatus = useMutation({
     mutationFn: () => ca?.status === 'active' ? disableCA(id) : enableCA(id),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['ca', id] }),
   })
+
+  const crlGenerateMutation = useMutation({
+    mutationFn: () => generateCRL(id),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['crl-info', id] }),
+  })
+
+  const handleCRLDownload = async () => {
+    const blob = await downloadCRL(id)
+    const a = document.createElement('a')
+    a.href = URL.createObjectURL(blob)
+    a.download = `${ca?.name || 'crl'}.crl`
+    a.click()
+    URL.revokeObjectURL(a.href)
+  }
 
   const deleteMutation = useMutation({
     mutationFn: (force) => deleteCA(id, force),
@@ -86,6 +102,12 @@ export default function CADetail() {
                 const blob = new Blob([chainPem], { type: 'application/x-pem-file' })
                 const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `${ca.name}-chain.pem`; a.click(); URL.revokeObjectURL(a.href)
               }}><DownloadIcon className="w-4 h-4" /> Full Chain</Button>
+              <Button variant="secondary" size="sm" onClick={handleCRLDownload}>
+                <DownloadIcon className="w-4 h-4" /> CRL
+              </Button>
+              <Button variant="secondary" size="sm" onClick={() => crlGenerateMutation.mutate()} disabled={crlGenerateMutation.isPending}>
+                {crlGenerateMutation.isPending ? 'Generating...' : crlGenerateMutation.isSuccess ? 'CRL Regenerated' : 'Regenerate CRL'}
+              </Button>
             </div>
           </div>
         </div>
@@ -102,6 +124,24 @@ export default function CADetail() {
           <div><span className="text-gray-500 dark:text-gray-400">Auto-Approve:</span> <span className="ml-2">{ca.auto_approve ? 'Yes' : 'No'}</span></div>
           <div><span className="text-gray-500 dark:text-gray-400">OCSP Signing:</span> <span className="ml-2">{ca.ocsp_signing_mode}</span></div>
           <div><span className="text-gray-500 dark:text-gray-400">CRL Interval:</span> <span className="ml-2">{ca.crl_regen_interval_hours}h</span></div>
+          {crlInfo && (
+            <div className="border-t border-gray-200 dark:border-gray-800 pt-3 mt-3 space-y-2">
+              <div className="text-xs uppercase tracking-wider text-gray-400 dark:text-gray-600 mb-2">CRL Status</div>
+              <div><span className="text-gray-500 dark:text-gray-400">CRL Number:</span> <span className="ml-2">{crlInfo.crl_number}</span></div>
+              <div><span className="text-gray-500 dark:text-gray-400">Last Generated:</span> <span className="ml-2">{new Date(crlInfo.this_update).toLocaleString()}</span></div>
+              <div>
+                <span className="text-gray-500 dark:text-gray-400">Next Update:</span>
+                <span className={`ml-2 ${new Date(crlInfo.next_update) < new Date() ? 'text-red-500' : ''}`}>
+                  {new Date(crlInfo.next_update).toLocaleString()}
+                </span>
+              </div>
+            </div>
+          )}
+          {!crlInfo && (
+            <div className="border-t border-gray-200 dark:border-gray-800 pt-3 mt-3">
+              <span className="text-gray-400 dark:text-gray-600 text-xs">No CRL generated yet</span>
+            </div>
+          )}
         </div>
       ),
     },

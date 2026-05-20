@@ -22,6 +22,18 @@ def generate_crl(
         raise HTTPException(status_code=400, detail=str(e))
 
 
+@router.get("/{ca_id}/crl/info", response_model=CRLResponse | None)
+def crl_info(
+    ca_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role(UserRole.admin, UserRole.operator)),
+):
+    crl = crl_service.get_latest_crl(db, ca_id)
+    if not crl:
+        return None
+    return crl
+
+
 @router.get("/{ca_id}/crl")
 def download_crl(
     ca_id: str,
