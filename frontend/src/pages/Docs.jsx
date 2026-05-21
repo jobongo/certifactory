@@ -54,6 +54,7 @@ function GettingStarted() {
         <Li><strong>Pending Requests</strong> — Review and approve or deny certificate requests (Operators and Admins only).</Li>
         <Li><strong>Audit Log</strong> — See a record of every action taken in the system.</Li>
         <Li><strong>Users</strong> — Manage user accounts (Admins only).</Li>
+        <Li><strong>Settings</strong> — Configure system-wide settings like session timeout, password policy, and certificate defaults (Admins only).</Li>
       </ul>
 
       <H3>Your Profile</H3>
@@ -125,7 +126,26 @@ function AuthoritiesGuide() {
       <ul className="list-disc list-inside space-y-1 mb-3">
         <Li><strong>Certificate PEM</strong> — The CA certificate file. Distribute this to systems that need to trust certificates issued by this CA.</Li>
         <Li><strong>Full Chain</strong> — The CA certificate plus all parent certificates. Use this when a client needs the complete chain of trust.</Li>
+        <Li><strong>CRL</strong> — The current Certificate Revocation List for this CA.</Li>
       </ul>
+
+      <H3>CRL Management</H3>
+      <P>Each CA maintains a Certificate Revocation List (CRL) — a signed list of revoked certificate serial numbers. CRLs are regenerated automatically based on the configured interval (see Settings). You can also:</P>
+      <ul className="list-disc list-inside space-y-1 mb-3">
+        <Li>Click <strong>Regenerate CRL</strong> on the CA overview tab to force an immediate regeneration.</Li>
+        <Li>View CRL status (CRL number, last generated, next update) on the CA's <strong>Settings</strong> tab.</Li>
+      </ul>
+
+      <H3>Certificate Templates</H3>
+      <P>Templates let you define reusable certificate profiles for a CA — pre-configured type, algorithm, validity, key usage, EKU, and subject defaults (Organization, OU, Country, State, Locality). Templates are per-CA and managed by admins.</P>
+      <P>To create a template:</P>
+      <ol className="list-decimal list-inside space-y-1 mb-3">
+        <Li>Go to a CA's detail page and open the <strong>Templates</strong> tab.</Li>
+        <Li>Click <strong>New Template</strong>.</Li>
+        <Li>Enter a name (e.g., "Web Server", "Client Auth") and configure the defaults.</Li>
+        <Li>Click <strong>Create</strong>.</Li>
+      </ol>
+      <P>When creating a certificate, select a CA that has templates — a <strong>Template</strong> dropdown appears. Selecting a template pre-fills all configured fields. You can still override any value before submitting.</P>
     </div>
   )
 }
@@ -177,6 +197,14 @@ openssl req -in server.csr -text -noout`}</CodeBlock>
         <Li><strong>DER</strong> — Binary format. Used by some Java applications.</Li>
         <Li><strong>PKCS12</strong> — Bundled format containing both the certificate and private key. Used by Windows (IIS), Java keystores, and browsers. You'll be prompted for a passphrase to protect the file.</Li>
       </ul>
+
+      <H3>Downloading Private Keys</H3>
+      <P>If the certificate was created through Certifactory (not via CSR), the private key is stored encrypted. You can download it from the certificate detail page:</P>
+      <ul className="list-disc list-inside space-y-1 mb-3">
+        <Li>Click <strong>Download Private Key</strong> in the Private Key section.</Li>
+        <Li>The key is downloaded as a PEM file named after the certificate's Common Name.</Li>
+      </ul>
+      <Note>Private keys submitted via CSR are never stored in Certifactory — only the certificate is available for download.</Note>
 
       <H3>Revoking a Certificate</H3>
       <P>If a certificate's private key has been compromised or the certificate is no longer needed:</P>
@@ -297,6 +325,38 @@ function UsersGuide() {
   )
 }
 
+function SettingsGuide() {
+  return (
+    <div>
+      <H2>Settings</H2>
+      <P>The <strong>Settings</strong> page (Admin only) lets you configure system-wide defaults. Changes take effect immediately for new operations — existing tokens and certificates are not retroactively modified.</P>
+
+      <H3>Security</H3>
+      <ul className="list-disc list-inside space-y-1 mb-3">
+        <Li><strong>Session Timeout</strong> — Minutes of inactivity before access tokens expire (5–1440). Users stay logged in longer via refresh tokens.</Li>
+        <Li><strong>Refresh Token Lifetime</strong> — Days before refresh tokens expire (1–90). After this, users must log in again.</Li>
+        <Li><strong>Minimum Password Length</strong> — Minimum characters required for new passwords (4–128).</Li>
+        <Li><strong>Require Uppercase</strong> — Require at least one uppercase letter in passwords.</Li>
+        <Li><strong>Require Number</strong> — Require at least one digit in passwords.</Li>
+        <Li><strong>Require Special Character</strong> — Require at least one special character in passwords.</Li>
+      </ul>
+      <Note>Password policy changes only apply to new passwords — existing passwords are not validated retroactively.</Note>
+
+      <H3>Certificates</H3>
+      <ul className="list-disc list-inside space-y-1 mb-3">
+        <Li><strong>Default Certificate Validity</strong> — Default validity period in days for new certificates when no value is specified (1–3650).</Li>
+        <Li><strong>Default CA Auto-Approve</strong> — Whether new CAs default to auto-approve. Can be overridden per CA.</Li>
+      </ul>
+
+      <H3>Maintenance</H3>
+      <ul className="list-disc list-inside space-y-1 mb-3">
+        <Li><strong>Audit Log Retention</strong> — Days to keep audit log entries before automatic cleanup (30–3650).</Li>
+        <Li><strong>CRL Regeneration Interval</strong> — Minutes between automatic CRL regeneration cycles (5–1440). Applies at startup — restart the backend to pick up changes.</Li>
+      </ul>
+    </div>
+  )
+}
+
 function APIGuide() {
   return (
     <div>
@@ -316,7 +376,12 @@ curl -X POST https://your-server/api/v1/auth/login \\
 
 # Use the token in subsequent requests
 curl https://your-server/api/v1/cas \\
-  -H "Authorization: Bearer eyJ..."`}</CodeBlock>
+  -H "Authorization: Bearer eyJ..."
+
+# Refresh an expired access token
+curl -X POST https://your-server/api/v1/auth/refresh \\
+  -H "Content-Type: application/json" \\
+  -d '{"refresh_token": "eyJ..."}'`}</CodeBlock>
 
       <P><strong>2. API Token</strong> (for scripts and automation):</P>
       <CodeBlock>{`# Create a token from the Profile page, then use it:
@@ -395,6 +460,10 @@ curl https://your-server/api/v1/certificates/<cert_id>/download?format=pem \\
 curl "https://your-server/api/v1/certificates/<cert_id>/download?format=pkcs12&passphrase=mypassword" \\
   -H "Authorization: Bearer <token>" -o cert.p12
 
+# Download private key (only if created by Certifactory, not CSR)
+curl "https://your-server/api/v1/certificates/<cert_id>/download?key_only=true" \\
+  -H "Authorization: Bearer <token>" -o private_key.pem
+
 # Approve a pending certificate
 curl -X POST https://your-server/api/v1/certificates/<cert_id>/approve \\
   -H "Authorization: Bearer <token>"
@@ -442,6 +511,50 @@ curl https://your-server/api/v1/tokens \\
 
 # Revoke an API token
 curl -X DELETE https://your-server/api/v1/tokens/<token_id> \\
+  -H "Authorization: Bearer <token>"`}</CodeBlock>
+
+      <H3>Certificate Templates</H3>
+      <CodeBlock>{`# List templates for a CA
+curl https://your-server/api/v1/cas/<ca_id>/templates \\
+  -H "Authorization: Bearer <token>"
+
+# Create a template (admin only)
+curl -X POST https://your-server/api/v1/cas/<ca_id>/templates \\
+  -H "Authorization: Bearer <token>" \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "name": "Web Server",
+    "type": "server",
+    "key_algorithm": "RSA",
+    "key_size": 2048,
+    "validity_days": 365,
+    "key_usage": ["digital_signature", "key_encipherment"],
+    "extended_key_usage": ["server_auth"],
+    "subject_defaults": {"O": "My Org", "C": "US", "ST": "California"}
+  }'
+
+# Delete a template (admin only)
+curl -X DELETE https://your-server/api/v1/cas/<ca_id>/templates/<template_id> \\
+  -H "Authorization: Bearer <token>"`}</CodeBlock>
+
+      <H3>Settings</H3>
+      <CodeBlock>{`# Get all settings (admin only)
+curl https://your-server/api/v1/settings \\
+  -H "Authorization: Bearer <token>"
+
+# Update settings (admin only)
+curl -X PUT https://your-server/api/v1/settings \\
+  -H "Authorization: Bearer <token>" \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "session_timeout_minutes": 60,
+    "default_cert_validity_days": 90,
+    "password_min_length": 12,
+    "password_require_uppercase": true
+  }'
+
+# Get defaults (any authenticated user)
+curl https://your-server/api/v1/settings/defaults \\
   -H "Authorization: Bearer <token>"`}</CodeBlock>
     </div>
   )
@@ -511,6 +624,7 @@ const tabs = [
   { key: 'certificates', label: 'Certificates', content: <CertificatesGuide /> },
   { key: 'approval', label: 'Approval', content: <ApprovalGuide /> },
   { key: 'users', label: 'Users & Roles', content: <UsersGuide /> },
+  { key: 'settings', label: 'Settings', content: <SettingsGuide /> },
   { key: 'api', label: 'API Reference', content: <APIGuide /> },
   { key: 'glossary', label: 'Glossary', content: <Glossary /> },
 ]
