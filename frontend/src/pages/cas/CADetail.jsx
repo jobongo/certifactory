@@ -28,6 +28,9 @@ export default function CADetail() {
   const [forceDeleteMessage, setForceDeleteMessage] = useState('')
   const [showTemplateModal, setShowTemplateModal] = useState(false)
   const [editTemplate, setEditTemplate] = useState(null)
+  const [showPem, setShowPem] = useState(false)
+  const [pemView, setPemView] = useState('cert')
+  const [copied, setCopied] = useState(false)
 
   const { data: ca, isLoading } = useQuery({ queryKey: ['ca', id], queryFn: () => getCA(id) })
   const { data: chain } = useQuery({ queryKey: ['ca-chain', id], queryFn: () => getCAChain(id) })
@@ -104,14 +107,15 @@ export default function CADetail() {
             <span className="text-gray-500 dark:text-gray-400 block mb-2">Download</span>
             <div className="flex gap-2">
               <Button variant="secondary" size="sm" onClick={() => {
-                const blob = new Blob([ca.certificate_pem], { type: 'application/x-pem-file' })
-                const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `${ca.name}.pem`; a.click(); URL.revokeObjectURL(a.href)
-              }}><DownloadIcon className="w-4 h-4" /> Certificate PEM</Button>
+                const blob = new Blob([ca.certificate_pem], { type: 'application/x-x509-ca-cert' })
+                const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `${ca.name}.crt`; a.click(); URL.revokeObjectURL(a.href)
+              }}><DownloadIcon className="w-4 h-4" /> Certificate</Button>
               <Button variant="secondary" size="sm" onClick={() => {
                 const chainPem = chain?.chain?.join('\n') || ca.certificate_pem
-                const blob = new Blob([chainPem], { type: 'application/x-pem-file' })
-                const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `${ca.name}-chain.pem`; a.click(); URL.revokeObjectURL(a.href)
+                const blob = new Blob([chainPem], { type: 'application/x-x509-ca-cert' })
+                const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `${ca.name}-chain.crt`; a.click(); URL.revokeObjectURL(a.href)
               }}><DownloadIcon className="w-4 h-4" /> Full Chain</Button>
+              <Button variant="secondary" size="sm" onClick={() => { setShowPem(true); setPemView('cert'); setCopied(false) }}>View PEM</Button>
               <Button variant="secondary" size="sm" onClick={handleCRLDownload}>
                 <DownloadIcon className="w-4 h-4" /> CRL
               </Button>
@@ -248,6 +252,36 @@ export default function CADetail() {
             <Button variant="secondary" onClick={() => setShowForceDelete(false)}>Cancel</Button>
             <Button variant="danger" onClick={() => { setShowForceDelete(false); deleteMutation.mutate(true) }} disabled={deleteMutation.isPending}>
               {deleteMutation.isPending ? 'Deleting...' : 'Force Delete'}
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      <Modal isOpen={showPem} onClose={() => setShowPem(false)} title="Certificate PEM" size="lg">
+        <div className="space-y-3">
+          {chain?.chain?.length > 1 && (
+            <div className="flex gap-1 text-sm">
+              <button type="button" onClick={() => { setPemView('cert'); setCopied(false) }}
+                className={`px-3 py-1 rounded ${pemView === 'cert' ? 'bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-gray-100' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'}`}>
+                Certificate
+              </button>
+              <button type="button" onClick={() => { setPemView('chain'); setCopied(false) }}
+                className={`px-3 py-1 rounded ${pemView === 'chain' ? 'bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-gray-100' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'}`}>
+                Full Chain
+              </button>
+            </div>
+          )}
+          <pre className="text-xs bg-gray-50 dark:bg-surface-4 border border-gray-200 dark:border-gray-800 rounded p-3 overflow-x-auto max-h-[50vh] overflow-y-auto select-all whitespace-pre-wrap break-all font-mono">
+            {pemView === 'chain' ? (chain?.chain?.join('\n') || ca?.certificate_pem) : ca?.certificate_pem}
+          </pre>
+          <div className="flex justify-end">
+            <Button variant="secondary" size="sm" onClick={() => {
+              const text = pemView === 'chain' ? (chain?.chain?.join('\n') || ca?.certificate_pem) : ca?.certificate_pem
+              navigator.clipboard.writeText(text)
+              setCopied(true)
+              setTimeout(() => setCopied(false), 2000)
+            }}>
+              {copied ? 'Copied!' : 'Copy to Clipboard'}
             </Button>
           </div>
         </div>
