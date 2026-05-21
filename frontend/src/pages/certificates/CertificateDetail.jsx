@@ -26,7 +26,7 @@ export default function CertificateDetail() {
 
   const revoke = useMutation({
     mutationFn: () => revokeCert(id, revokeReason),
-    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['certificate', id] }); setShowRevoke(false) },
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['certificate', id] }); queryClient.invalidateQueries({ queryKey: ['certificates'] }); setShowRevoke(false) },
   })
 
   const renew = useMutation({
@@ -36,12 +36,12 @@ export default function CertificateDetail() {
 
   const approve = useMutation({
     mutationFn: () => approveCert(id),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['certificate', id] }),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['certificate', id] }); queryClient.invalidateQueries({ queryKey: ['certificates'] }) },
   })
 
   const deny = useMutation({
     mutationFn: () => denyCert(id),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['certificate', id] }),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['certificate', id] }); queryClient.invalidateQueries({ queryKey: ['certificates'] }) },
   })
 
   const deleteMutation = useMutation({

@@ -82,8 +82,25 @@ export default function CADetail() {
 
   if (!ca) return <div className="text-gray-400 py-8">{isLoading ? '' : 'CA not found'}</div>
 
+  const parseDN = (dn) => {
+    const parts = {}
+    if (!dn) return parts
+    for (const seg of dn.split(',')) {
+      const idx = seg.indexOf('=')
+      if (idx === -1) continue
+      parts[seg.substring(0, idx).trim()] = seg.substring(idx + 1).trim()
+    }
+    return parts
+  }
+
   const certColumns = [
-    { key: 'subject_dn', label: 'Subject' },
+    {
+      key: 'subject_dn', label: 'Common Name',
+      render: (_, row) => {
+        const p = parseDN(row.subject_dn)
+        return <span className="font-medium text-gray-900 dark:text-gray-100">{p.CN || row.subject_dn}</span>
+      },
+    },
     { key: 'type', label: 'Type' },
     { key: 'status', label: 'Status', render: (val) => <StatusBadge status={val} /> },
     { key: 'not_after', label: 'Expires', render: (val) => val ? new Date(val).toLocaleDateString() : '—' },

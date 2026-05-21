@@ -24,6 +24,9 @@ def list_certificates(
     per_page: int = Query(25, ge=1, le=100),
     ca_id: str | None = None,
     cert_status: str | None = Query(None, alias="status"),
+    search: str | None = None,
+    sort_by: str = Query("created_at", pattern="^(subject_dn|type|status|not_after|created_at)$"),
+    sort_order: str = Query("desc", pattern="^(asc|desc)$"),
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role(UserRole.admin, UserRole.operator, UserRole.auditor, UserRole.requester)),
 ):
@@ -34,8 +37,12 @@ def list_certificates(
         query = query.filter(Certificate.ca_id == ca_id)
     if cert_status:
         query = query.filter(Certificate.status == CertificateStatus(cert_status))
+    if search:
+        query = query.filter(Certificate.subject_dn.ilike(f"%{search}%"))
     total = query.count()
-    items = query.order_by(Certificate.created_at.desc()).offset((page - 1) * per_page).limit(per_page).all()
+    sort_col = getattr(Certificate, sort_by)
+    order = sort_col.asc() if sort_order == "asc" else sort_col.desc()
+    items = query.order_by(order).offset((page - 1) * per_page).limit(per_page).all()
     return CertificateListResponse(items=items, total=total, page=page, per_page=per_page)
 
 
