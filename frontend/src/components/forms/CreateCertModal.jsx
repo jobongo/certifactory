@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { createCertificate } from '../../api/certificates'
 import { getCAs } from '../../api/cas'
 import { getDefaults } from '../../api/settings'
+import { getTemplates } from '../../api/templates'
 import Modal from '../ui/Modal'
 import SubjectDNFields from './SubjectDNFields'
 import SANFields from './SANFields'
@@ -21,6 +22,7 @@ export default function CreateCertModal({ isOpen, onClose }) {
   const { data: defaults } = useQuery({ queryKey: ['settings-defaults'], queryFn: getDefaults })
 
   const [caId, setCaId] = useState('')
+  const [templateId, setTemplateId] = useState('')
   const [subject, setSubject] = useState({ CN: '' })
   const [sans, setSans] = useState([{ type: 'DNS', value: '' }])
   const [certType, setCertType] = useState('server')
@@ -34,6 +36,12 @@ export default function CreateCertModal({ isOpen, onClose }) {
   const [customExts, setCustomExts] = useState([])
   const [error, setError] = useState('')
 
+  const { data: templates } = useQuery({
+    queryKey: ['templates', caId],
+    queryFn: () => getTemplates(caId),
+    enabled: !!caId,
+  })
+
   const mutation = useMutation({
     mutationFn: createCertificate,
     onSuccess: (data) => {
@@ -46,9 +54,34 @@ export default function CreateCertModal({ isOpen, onClose }) {
   })
 
   const resetForm = () => {
-    setCaId(''); setSubject({ CN: '' }); setSans([{ type: 'DNS', value: '' }])
+    setCaId(''); setTemplateId(''); setSubject({ CN: '' }); setSans([{ type: 'DNS', value: '' }])
     setCertType('server'); setKeyAlgorithm('RSA'); setKeySize(2048); setValidityDaysInput(null)
     setShowAdvanced(false); setKeyUsage([]); setEku([]); setCustomExts([]); setError('')
+  }
+
+  const handleCAChange = (newCaId) => {
+    setCaId(newCaId)
+    setTemplateId('')
+  }
+
+  const handleTemplateChange = (newTemplateId) => {
+    setTemplateId(newTemplateId)
+    if (!newTemplateId) return
+    const t = templates?.find((t) => t.id === newTemplateId)
+    if (!t) return
+    setCertType(t.type)
+    setKeyAlgorithm(t.key_algorithm)
+    setKeySize(t.key_size)
+    setValidityDaysInput(t.validity_days)
+    setKeyUsage(t.key_usage || [])
+    setEku(t.extended_key_usage || [])
+    setCustomExts(t.custom_extensions || [])
+    if (t.subject_defaults) {
+      setSubject((prev) => ({ ...prev, ...t.subject_defaults }))
+    }
+    if (t.key_usage?.length || t.extended_key_usage?.length || t.custom_extensions?.length) {
+      setShowAdvanced(true)
+    }
   }
 
   const handleSubmit = (e) => {
@@ -58,20 +91,25 @@ export default function CreateCertModal({ isOpen, onClose }) {
       ca_id: caId, subject, san: sans.filter((s) => s.value), type: certType,
       key_algorithm: keyAlgorithm, key_size: Number(keySize), validity_days: Number(validityDays),
     }
-    if (showAdvanced) {
-      if (keyUsage.length) data.key_usage = keyUsage
-      if (eku.length) data.extended_key_usage = eku
-      if (customExts.length) data.custom_extensions = customExts.filter((e) => e.oid)
-    }
+    if (keyUsage.length) data.key_usage = keyUsage
+    if (eku.length) data.extended_key_usage = eku
+    if (customExts.length) data.custom_extensions = customExts.filter((e) => e.oid)
     mutation.mutate(data)
   }
 
   const caOptions = [{ value: '', label: 'Select CA...' }, ...(cas?.items?.map((ca) => ({ value: ca.id, label: ca.name })) || [])]
+  const templateOptions = [
+    { value: '', label: 'No template' },
+    ...(templates?.map((t) => ({ value: t.id, label: t.name })) || []),
+  ]
 
   return (
     <Modal isOpen={isOpen} onClose={() => { onClose(); resetForm() }} title="Create Certificate" size="xl">
       <form onSubmit={handleSubmit} className="space-y-4 max-h-[70vh] overflow-y-auto pr-2">
-        <Select label="Issuing CA *" options={caOptions} value={caId} onChange={(e) => setCaId(e.target.value)} required />
+        <Select label="Issuing CA *" options={caOptions} value={caId} onChange={(e) => handleCAChange(e.target.value)} required />
+        {caId && templates?.length > 0 && (
+          <Select label="Template" options={templateOptions} value={templateId} onChange={(e) => handleTemplateChange(e.target.value)} />
+        )}
         <SubjectDNFields value={subject} onChange={setSubject} />
         <SANFields value={sans} onChange={setSans} />
         <div className="grid grid-cols-3 gap-4">

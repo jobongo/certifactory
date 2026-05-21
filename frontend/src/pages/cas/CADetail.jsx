@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { getCA, getCAChain, disableCA, enableCA, updateCA, deleteCA } from '../../api/cas'
 import { getCertificates } from '../../api/certificates'
 import { generateCRL, downloadCRL, getCRLInfo } from '../../api/crl'
+import { getTemplates, deleteTemplate } from '../../api/templates'
 import Tabs from '../../components/ui/Tabs'
 import Table from '../../components/ui/Table'
 import Button from '../../components/ui/Button'
@@ -11,8 +12,9 @@ import Modal from '../../components/ui/Modal'
 import StatusBadge from '../../components/shared/StatusBadge'
 import CertChain from '../../components/shared/CertChain'
 import CreateCAModal from '../../components/forms/CreateCAModal'
+import TemplateModal from '../../components/forms/TemplateModal'
 import { useAuth } from '../../hooks/useAuth'
-import { DownloadIcon } from '../../utils/icons'
+import { DownloadIcon, PlusIcon, XIcon } from '../../utils/icons'
 
 export default function CADetail() {
   const { id } = useParams()
@@ -24,11 +26,19 @@ export default function CADetail() {
   const [showForceDelete, setShowForceDelete] = useState(false)
   const [deleteError, setDeleteError] = useState('')
   const [forceDeleteMessage, setForceDeleteMessage] = useState('')
+  const [showTemplateModal, setShowTemplateModal] = useState(false)
+  const [editTemplate, setEditTemplate] = useState(null)
 
   const { data: ca, isLoading } = useQuery({ queryKey: ['ca', id], queryFn: () => getCA(id) })
   const { data: chain } = useQuery({ queryKey: ['ca-chain', id], queryFn: () => getCAChain(id) })
   const { data: certs } = useQuery({ queryKey: ['ca-certs', id], queryFn: () => getCertificates({ ca_id: id }) })
   const { data: crlInfo } = useQuery({ queryKey: ['crl-info', id], queryFn: () => getCRLInfo(id) })
+  const { data: templates } = useQuery({ queryKey: ['templates', id], queryFn: () => getTemplates(id) })
+
+  const deleteTemplateMutation = useMutation({
+    mutationFn: (templateId) => deleteTemplate(id, templateId),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['templates', id] }),
+  })
 
   const toggleStatus = useMutation({
     mutationFn: () => ca?.status === 'active' ? disableCA(id) : enableCA(id),
@@ -145,6 +155,46 @@ export default function CADetail() {
         </div>
       ),
     },
+    {
+      key: 'templates', label: 'Templates',
+      content: (
+        <div className="space-y-3">
+          {user?.role === 'admin' && (
+            <div className="flex justify-end">
+              <Button size="sm" onClick={() => { setEditTemplate(null); setShowTemplateModal(true) }}>
+                <PlusIcon className="w-4 h-4" /> New Template
+              </Button>
+            </div>
+          )}
+          {templates?.length === 0 && (
+            <p className="text-sm text-gray-400 dark:text-gray-600 py-4 text-center">No templates defined for this CA</p>
+          )}
+          {templates?.map((t) => (
+            <div key={t.id} className="flex items-start justify-between p-3 rounded border border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-surface-4">
+              <div className="flex-1 min-w-0">
+                <div className="text-sm font-medium text-gray-900 dark:text-gray-100">{t.name}</div>
+                {t.description && <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{t.description}</div>}
+                <div className="flex gap-3 mt-1.5 text-xs text-gray-500 dark:text-gray-400">
+                  <span>{t.type}</span>
+                  <span>{t.key_algorithm} {t.key_size}</span>
+                  <span>{t.validity_days}d</span>
+                  {t.key_usage?.length > 0 && <span>KU: {t.key_usage.length}</span>}
+                  {t.extended_key_usage?.length > 0 && <span>EKU: {t.extended_key_usage.length}</span>}
+                </div>
+              </div>
+              {user?.role === 'admin' && (
+                <div className="flex gap-1 ml-2 shrink-0">
+                  <Button variant="ghost" size="sm" onClick={() => { setEditTemplate(t); setShowTemplateModal(true) }}>Edit</Button>
+                  <Button variant="ghost" size="sm" onClick={() => deleteTemplateMutation.mutate(t.id)}>
+                    <XIcon className="w-3 h-3" />
+                  </Button>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      ),
+    },
   ]
 
   return (
@@ -173,6 +223,7 @@ export default function CADetail() {
         <Tabs tabs={tabs} />
       </div>
       <CreateCAModal isOpen={showIntermediate} onClose={() => setShowIntermediate(false)} parentId={id} />
+      <TemplateModal isOpen={showTemplateModal} onClose={() => { setShowTemplateModal(false); setEditTemplate(null) }} caId={id} template={editTemplate} />
 
       <Modal isOpen={showDelete} onClose={() => setShowDelete(false)} title="Delete CA">
         <div className="space-y-4">
