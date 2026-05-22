@@ -21,6 +21,9 @@ export default function CertificateDetail() {
   const [passphrase, setPassphrase] = useState('')
   const [showDeleteModal, setShowDeleteModal] = useState(false)
   const [deleteError, setDeleteError] = useState('')
+  const [showPem, setShowPem] = useState(false)
+  const [pemView, setPemView] = useState('cert')
+  const [copied, setCopied] = useState(false)
 
   const { data: cert, isLoading } = useQuery({ queryKey: ['certificate', id], queryFn: () => getCertificate(id) })
 
@@ -157,6 +160,7 @@ export default function CertificateDetail() {
               <Button variant="secondary" size="sm" onClick={() => handleDownload('pem')}><DownloadIcon className="w-4 h-4" /> PEM</Button>
               <Button variant="secondary" size="sm" onClick={() => handleDownload('der')}><DownloadIcon className="w-4 h-4" /> DER</Button>
               <Button variant="secondary" size="sm" onClick={() => handleDownload('pkcs12')}><DownloadIcon className="w-4 h-4" /> PKCS12</Button>
+              <Button variant="secondary" size="sm" onClick={() => { setShowPem(true); setPemView('cert'); setCopied(false) }}>View PEM</Button>
             </div>
             {cert.has_private_key && (
               <div className="mt-3">
@@ -199,6 +203,36 @@ export default function CertificateDetail() {
             <Button variant="secondary" onClick={() => { setShowDeleteModal(false); setDeleteError('') }}>Cancel</Button>
             <Button variant="danger" onClick={() => deleteMutation.mutate()} disabled={deleteMutation.isPending}>
               {deleteMutation.isPending ? 'Deleting...' : 'Delete'}
+            </Button>
+          </div>
+        </div>
+      </Modal>
+
+      <Modal isOpen={showPem} onClose={() => setShowPem(false)} title="Certificate PEM" size="lg">
+        <div className="space-y-3">
+          {cert?.csr_pem && (
+            <div className="flex gap-1 text-sm">
+              <button type="button" onClick={() => { setPemView('cert'); setCopied(false) }}
+                className={`px-3 py-1 rounded ${pemView === 'cert' ? 'bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-gray-100' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'}`}>
+                Certificate
+              </button>
+              <button type="button" onClick={() => { setPemView('csr'); setCopied(false) }}
+                className={`px-3 py-1 rounded ${pemView === 'csr' ? 'bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-gray-100' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'}`}>
+                CSR
+              </button>
+            </div>
+          )}
+          <pre className="text-xs bg-gray-50 dark:bg-surface-4 border border-gray-200 dark:border-gray-800 rounded p-3 overflow-x-auto max-h-[50vh] overflow-y-auto select-all whitespace-pre-wrap break-all font-mono">
+            {pemView === 'csr' ? cert?.csr_pem : cert?.certificate_pem}
+          </pre>
+          <div className="flex justify-end">
+            <Button variant="secondary" size="sm" onClick={() => {
+              const text = pemView === 'csr' ? cert?.csr_pem : cert?.certificate_pem
+              navigator.clipboard.writeText(text)
+              setCopied(true)
+              setTimeout(() => setCopied(false), 2000)
+            }}>
+              {copied ? 'Copied!' : 'Copy to Clipboard'}
             </Button>
           </div>
         </div>
