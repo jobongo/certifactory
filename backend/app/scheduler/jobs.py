@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 
 from sqlalchemy.orm import Session
 
@@ -15,7 +15,7 @@ settings_service = SettingsService()
 def regenerate_crls():
     db: Session = SessionLocal()
     try:
-        now = datetime.now(timezone.utc)
+        now = datetime.utcnow()
         cas = db.query(CertificateAuthority).filter(CertificateAuthority.status == CAStatus.active).all()
         for ca in cas:
             latest = (
@@ -34,7 +34,7 @@ def regenerate_crls():
 def check_expirations():
     db: Session = SessionLocal()
     try:
-        now = datetime.now(timezone.utc)
+        now = datetime.utcnow()
         expired = (
             db.query(Certificate)
             .filter(
@@ -55,7 +55,7 @@ def cleanup_audit_logs():
     db: Session = SessionLocal()
     try:
         retention_days = settings_service.get(db, "audit_retention_days")
-        cutoff = datetime.now(timezone.utc) - timedelta(days=retention_days)
+        cutoff = datetime.utcnow() - timedelta(days=retention_days)
         db.query(AuditLog).filter(AuditLog.timestamp < cutoff).delete()
         db.commit()
     finally:
