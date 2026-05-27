@@ -63,3 +63,24 @@ def admin_token(admin_user):
 @pytest.fixture
 def admin_headers(admin_token):
     return {"Authorization": f"Bearer {admin_token}"}
+
+@pytest.fixture
+def operator_user(db):
+    from app.models import User, UserRole
+    from app.services.auth_service import AuthService
+    auth = AuthService()
+    user = User(username="operator", email="operator@test.com", password_hash=auth.hash_password("operator123"), role=UserRole.operator)
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+    return user
+
+@pytest.fixture
+def operator_token(operator_user):
+    from app.services.auth_service import AuthService
+    auth = AuthService()
+    return auth.create_access_token(operator_user.id, operator_user.role.value)
+
+@pytest.fixture
+def operator_headers(operator_token):
+    return {"Authorization": f"Bearer {operator_token}"}

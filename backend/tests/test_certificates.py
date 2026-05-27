@@ -71,7 +71,7 @@ def test_certificate_pending_approval(client, admin_headers, approval_ca):
     assert response.json()["status"] == "pending"
 
 
-def test_approve_certificate(client, admin_headers, approval_ca):
+def test_approve_certificate(client, admin_headers, operator_headers, approval_ca):
     cert = client.post(
         "/api/v1/certificates",
         json={
@@ -85,7 +85,7 @@ def test_approve_certificate(client, admin_headers, approval_ca):
         },
         headers=admin_headers,
     ).json()
-    response = client.post(f"/api/v1/certificates/{cert['id']}/approve", headers=admin_headers)
+    response = client.post(f"/api/v1/certificates/{cert['id']}/approve", headers=operator_headers)
     assert response.status_code == 200
     assert response.json()["status"] == "active"
     assert response.json()["certificate_pem"] is not None
@@ -130,6 +130,45 @@ def test_download_pem(client, admin_headers, root_ca):
     ).json()
     response = client.get(f"/api/v1/certificates/{cert['id']}/download?format=pem", headers=admin_headers)
     assert response.status_code == 200
+
+
+def test_approve_self_request_blocked(client, admin_headers, admin_user):
+    ca_data = {
+        "name": "Test CA", "key_algorithm": "RSA", "key_size": 2048,
+        "validity_days": 365, "auto_approve": False,
+        "subject": {"CN": "Test CA"}
+    }
+    ca = client.post("/api/v1/cas", json=ca_data, headers=admin_headers).json()
+
+    cert_data = {
+        "ca_id": ca["id"], "subject": {"CN": "self-approve-test"},
+        "type": "server", "key_algorithm": "RSA", "key_size": 2048, "validity_days": 90
+    }
+    cert = client.post("/api/v1/certificates", json=cert_data, headers=admin_headers).json()
+    assert cert["status"] == "pending"
+
+    resp = client.post(f"/api/v1/certificates/{cert['id']}/approve", headers=admin_headers)
+    assert resp.status_code == 400
+    assert "cannot approve" in resp.json()["detail"].lower()
+
+
+def test_deny_self_request_blocked(client, admin_headers, admin_user):
+    ca_data = {
+        "name": "Test CA 2", "key_algorithm": "RSA", "key_size": 2048,
+        "validity_days": 365, "auto_approve": False,
+        "subject": {"CN": "Test CA 2"}
+    }
+    ca = client.post("/api/v1/cas", json=ca_data, headers=admin_headers).json()
+
+    cert_data = {
+        "ca_id": ca["id"], "subject": {"CN": "self-deny-test"},
+        "type": "server", "key_algorithm": "RSA", "key_size": 2048, "validity_days": 90
+    }
+    cert = client.post("/api/v1/certificates", json=cert_data, headers=admin_headers).json()
+
+    resp = client.post(f"/api/v1/certificates/{cert['id']}/deny", headers=admin_headers)
+    assert resp.status_code == 400
+    assert "cannot deny" in resp.json()["detail"].lower()
 
 
 def test_submit_csr(client, admin_headers, root_ca):
