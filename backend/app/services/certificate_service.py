@@ -200,8 +200,6 @@ class CertificateService:
             raise ValueError("Certificate not found")
         if cert.status != CertificateStatus.pending:
             raise ValueError("Certificate is not pending")
-        if cert.requested_by == user_id:
-            raise ValueError("Cannot deny a certificate you requested")
         cert.status = CertificateStatus.denied
         db.commit()
         db.refresh(cert)

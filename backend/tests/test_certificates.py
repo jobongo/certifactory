@@ -152,7 +152,7 @@ def test_approve_self_request_blocked(client, admin_headers, admin_user):
     assert "cannot approve" in resp.json()["detail"].lower()
 
 
-def test_deny_self_request_blocked(client, admin_headers, admin_user):
+def test_deny_own_request_allowed(client, admin_headers, admin_user):
     ca_data = {
         "name": "Test CA 2", "key_algorithm": "RSA", "key_size": 2048,
         "validity_days": 365, "auto_approve": False,
@@ -167,8 +167,8 @@ def test_deny_self_request_blocked(client, admin_headers, admin_user):
     cert = client.post("/api/v1/certificates", json=cert_data, headers=admin_headers).json()
 
     resp = client.post(f"/api/v1/certificates/{cert['id']}/deny", headers=admin_headers)
-    assert resp.status_code == 400
-    assert "cannot deny" in resp.json()["detail"].lower()
+    assert resp.status_code == 200
+    assert resp.json()["status"] == "denied"
 
 
 def test_submit_csr(client, admin_headers, root_ca):

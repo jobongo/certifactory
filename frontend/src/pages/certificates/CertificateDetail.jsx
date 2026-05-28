@@ -124,6 +124,7 @@ export default function CertificateDetail() {
             <>
               <Button onClick={() => approve.mutate()}>Approve</Button>
               <Button variant="danger" onClick={() => deny.mutate()}>Deny</Button>
+              <Button variant="danger" onClick={() => setShowDeleteModal(true)}>Delete</Button>
             </>
           )}
           {['revoked', 'expired', 'denied'].includes(cert.status) && isAdmin && (

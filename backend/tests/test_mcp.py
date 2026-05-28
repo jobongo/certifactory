@@ -118,7 +118,7 @@ def test_approve_self_blocked_via_mcp(db, mcp_user, mcp_token, manual_ca):
         approve_certificate(token=mcp_token, cert_id=cert_dict["id"])
 
 
-def test_deny_self_blocked_via_mcp(db, mcp_user, mcp_token, manual_ca):
+def test_deny_own_cert_via_mcp(db, mcp_user, mcp_token, manual_ca):
     from app.models.setting import Setting
     db.add(Setting(key="mcp_allow_approval", value="true"))
     db.commit()
@@ -127,8 +127,8 @@ def test_deny_self_blocked_via_mcp(db, mcp_user, mcp_token, manual_ca):
     )
     import ast
     cert_dict = ast.literal_eval(result)
-    with pytest.raises(ValueError, match="Cannot deny"):
-        deny_certificate(token=mcp_token, cert_id=cert_dict["id"])
+    denied = deny_certificate(token=mcp_token, cert_id=cert_dict["id"])
+    assert "'status': 'denied'" in denied
 
 
 def test_check_certificate_status_active(db, mcp_user, mcp_token, test_ca):
