@@ -10,10 +10,25 @@ from app.models.api_token import ApiToken
 from app.services.ca_service import CAService
 from app.services.certificate_service import CertificateService
 from app.services.crl_service import CRLService
+from app.services.settings_service import SettingsService
 
 ca_service = CAService()
 cert_service = CertificateService()
 crl_service = CRLService()
+settings_svc = SettingsService()
+
+
+def _check_mcp_enabled(db: Session):
+    if not settings_svc.get(db, "mcp_enabled"):
+        raise ValueError("MCP server is disabled")
+
+
+def _check_ca_mcp_access(ca: CertificateAuthority, operation: str):
+    if not ca.mcp_enabled:
+        raise ValueError(f"MCP access is disabled for CA '{ca.name}'")
+    allowed = ca.mcp_allowed_operations
+    if allowed is not None and operation not in allowed:
+        raise ValueError(f"MCP operation '{operation}' is not allowed for CA '{ca.name}'")
 
 
 def resolve_user(token: str | None, db: Session) -> User:
@@ -73,6 +88,7 @@ def list_cas(token: str, status: str | None = None) -> str:
     """List all certificate authorities. Optionally filter by status (active, disabled)."""
     db = SessionLocal()
     try:
+        _check_mcp_enabled(db)
         user = resolve_user(token, db)
         _check_role(user, UserRole.admin, UserRole.operator, UserRole.auditor)
         query = db.query(CertificateAuthority)
@@ -89,6 +105,7 @@ def get_ca(token: str, ca_id: str | None = None, name: str | None = None) -> str
     """Get detailed information about a CA by ID or name. Provide one of ca_id or name."""
     db = SessionLocal()
     try:
+        _check_mcp_enabled(db)
         user = resolve_user(token, db)
         _check_role(user, UserRole.admin, UserRole.operator, UserRole.auditor)
         if ca_id:
@@ -109,6 +126,7 @@ def get_ca_chain(token: str, ca_id: str) -> str:
     """Get the full PEM certificate chain for a CA, from the CA up to the root."""
     db = SessionLocal()
     try:
+        _check_mcp_enabled(db)
         user = resolve_user(token, db)
         _check_role(user, UserRole.admin, UserRole.operator, UserRole.auditor)
         chain = ca_service.get_chain(db, ca_id)
@@ -128,6 +146,7 @@ def list_certificates(
     """Search and list certificates. Filter by ca_id, status (active/pending/revoked/expired), or search by subject DN."""
     db = SessionLocal()
     try:
+        _check_mcp_enabled(db)
         user = resolve_user(token, db)
         _check_role(user, UserRole.admin, UserRole.operator, UserRole.auditor, UserRole.requester)
         query = db.query(Certificate)
@@ -153,6 +172,7 @@ def get_certificate(token: str, cert_id: str) -> str:
     """Get detailed information about a specific certificate by ID."""
     db = SessionLocal()
     try:
+        _check_mcp_enabled(db)
         user = resolve_user(token, db)
         _check_role(user, UserRole.admin, UserRole.operator, UserRole.auditor, UserRole.requester)
         cert = db.query(Certificate).filter(Certificate.id == cert_id).first()
@@ -170,6 +190,7 @@ def get_crl_info(token: str, ca_id: str) -> str:
     """Get CRL (Certificate Revocation List) status for a CA."""
     db = SessionLocal()
     try:
+        _check_mcp_enabled(db)
         user = resolve_user(token, db)
         _check_role(user, UserRole.admin, UserRole.operator)
         crl = crl_service.get_latest_crl(db, ca_id)
@@ -189,6 +210,7 @@ def check_certificate_status(token: str, cert_id: str) -> str:
     """Check the revocation status of a certificate (good, revoked, or unknown). Returns status, validity dates, and revocation details if revoked."""
     db = SessionLocal()
     try:
+        _check_mcp_enabled(db)
         user = resolve_user(token, db)
         _check_role(user, UserRole.admin, UserRole.operator, UserRole.auditor, UserRole.requester)
         cert = db.query(Certificate).filter(Certificate.id == cert_id).first()
@@ -226,8 +248,13 @@ def create_certificate(
     """Create and issue a new certificate. If the CA has auto-approve enabled, the certificate is issued immediately. Otherwise it will be pending approval."""
     db = SessionLocal()
     try:
+        _check_mcp_enabled(db)
         user = resolve_user(token, db)
         _check_role(user, UserRole.admin, UserRole.operator, UserRole.requester)
+        ca = db.query(CertificateAuthority).filter(CertificateAuthority.id == ca_id).first()
+        if not ca:
+            raise ValueError("CA not found")
+        _check_ca_mcp_access(ca, "issue")
         subject = {"CN": common_name}
         if organization:
             subject["O"] = organization
@@ -262,8 +289,13 @@ def submit_csr(
     """Submit a PEM-encoded Certificate Signing Request for signing."""
     db = SessionLocal()
     try:
+        _check_mcp_enabled(db)
         user = resolve_user(token, db)
         _check_role(user, UserRole.admin, UserRole.operator, UserRole.requester)
+        ca = db.query(CertificateAuthority).filter(CertificateAuthority.id == ca_id).first()
+        if not ca:
+            raise ValueError("CA not found")
+        _check_ca_mcp_access(ca, "issue")
         data = {"ca_id": ca_id, "csr_pem": csr_pem, "type": type}
         if validity_days:
             data["validity_days"] = validity_days
@@ -278,8 +310,11 @@ def approve_certificate(token: str, cert_id: str) -> str:
     """Approve a pending certificate. Cannot approve a certificate you requested."""
     db = SessionLocal()
     try:
+        _check_mcp_enabled(db)
         user = resolve_user(token, db)
         _check_role(user, UserRole.admin, UserRole.operator)
+        if not settings_svc.get(db, "mcp_allow_approval"):
+            raise ValueError("Certificate approval via MCP is disabled")
         cert = cert_service.approve(db, user.id, cert_id)
         return str(_cert_to_dict(cert))
     finally:
@@ -291,8 +326,11 @@ def deny_certificate(token: str, cert_id: str) -> str:
     """Deny a pending certificate. Cannot deny a certificate you requested."""
     db = SessionLocal()
     try:
+        _check_mcp_enabled(db)
         user = resolve_user(token, db)
         _check_role(user, UserRole.admin, UserRole.operator)
+        if not settings_svc.get(db, "mcp_allow_approval"):
+            raise ValueError("Certificate denial via MCP is disabled")
         cert = cert_service.deny(db, user.id, cert_id)
         return str(_cert_to_dict(cert))
     finally:
@@ -307,6 +345,7 @@ def download_certificate(
     """Download a certificate in PEM, DER, or PKCS12 format. Set key_only=true to download only the private key. Passphrase is required for PKCS12."""
     db = SessionLocal()
     try:
+        _check_mcp_enabled(db)
         user = resolve_user(token, db)
         _check_role(user, UserRole.admin, UserRole.operator, UserRole.requester)
         cert = db.query(Certificate).filter(Certificate.id == cert_id).first()
@@ -314,6 +353,8 @@ def download_certificate(
             raise ValueError("Certificate not found")
         if user.role == UserRole.requester and cert.requested_by != user.id:
             raise ValueError("Certificate not found")
+        ca = db.query(CertificateAuthority).filter(CertificateAuthority.id == cert.ca_id).first()
+        _check_ca_mcp_access(ca, "download")
         data = cert_service.download(cert_id, format, db, passphrase=passphrase, key_only=key_only)
         if format == "pem" or key_only:
             return data.decode() if isinstance(data, bytes) else data

@@ -95,7 +95,20 @@ def test_create_certificate_pending(db, mcp_user, mcp_token, manual_ca):
     assert "pending" in result
 
 
+def test_approve_blocked_when_mcp_approval_disabled(db, mcp_user, mcp_token, manual_ca):
+    result = create_certificate(
+        token=mcp_token, ca_id=manual_ca["id"], common_name="approval-disabled.example.com",
+    )
+    import ast
+    cert_dict = ast.literal_eval(result)
+    with pytest.raises(ValueError, match="approval via MCP is disabled"):
+        approve_certificate(token=mcp_token, cert_id=cert_dict["id"])
+
+
 def test_approve_self_blocked_via_mcp(db, mcp_user, mcp_token, manual_ca):
+    from app.models.setting import Setting
+    db.add(Setting(key="mcp_allow_approval", value="true"))
+    db.commit()
     result = create_certificate(
         token=mcp_token, ca_id=manual_ca["id"], common_name="self-block.example.com",
     )
@@ -106,6 +119,9 @@ def test_approve_self_blocked_via_mcp(db, mcp_user, mcp_token, manual_ca):
 
 
 def test_deny_self_blocked_via_mcp(db, mcp_user, mcp_token, manual_ca):
+    from app.models.setting import Setting
+    db.add(Setting(key="mcp_allow_approval", value="true"))
+    db.commit()
     result = create_certificate(
         token=mcp_token, ca_id=manual_ca["id"], common_name="self-deny-mcp.example.com",
     )

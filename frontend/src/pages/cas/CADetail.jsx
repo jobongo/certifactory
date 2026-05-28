@@ -31,6 +31,7 @@ export default function CADetail() {
   const [showPem, setShowPem] = useState(false)
   const [pemView, setPemView] = useState('cert')
   const [copied, setCopied] = useState(false)
+  const [mcpDirty, setMcpDirty] = useState(false)
 
   const { data: ca, isLoading } = useQuery({ queryKey: ['ca', id], queryFn: () => getCA(id) })
   const { data: chain } = useQuery({ queryKey: ['ca-chain', id], queryFn: () => getCAChain(id) })
@@ -46,6 +47,11 @@ export default function CADetail() {
   const toggleStatus = useMutation({
     mutationFn: () => ca?.status === 'active' ? disableCA(id) : enableCA(id),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['ca', id] }),
+  })
+
+  const mcpUpdateMutation = useMutation({
+    mutationFn: (data) => updateCA(id, data),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ['ca', id] }); setMcpDirty(false) },
   })
 
   const crlGenerateMutation = useMutation({
@@ -171,6 +177,52 @@ export default function CADetail() {
           {!crlInfo && (
             <div className="border-t border-gray-200 dark:border-gray-800 pt-3 mt-3">
               <span className="text-gray-400 dark:text-gray-600 text-xs">No CRL generated yet</span>
+            </div>
+          )}
+          {user?.role === 'admin' && (
+            <div className="border-t border-gray-200 dark:border-gray-800 pt-3 mt-3 space-y-3">
+              <div className="text-xs uppercase tracking-wider text-gray-400 dark:text-gray-600 mb-2">MCP Access</div>
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="text-sm text-gray-900 dark:text-gray-100">MCP Enabled</div>
+                  <div className="text-xs text-gray-500 dark:text-gray-400">Allow AI agents to access this CA via MCP</div>
+                </div>
+                <button type="button" onClick={() => { mcpUpdateMutation.mutate({ mcp_enabled: !ca.mcp_enabled }) }}
+                  className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ${ca.mcp_enabled ? 'bg-gray-800 dark:bg-gray-200' : 'bg-gray-300 dark:bg-gray-700'}`}>
+                  <span className={`pointer-events-none inline-block h-5 w-5 rounded-full bg-white dark:bg-gray-900 shadow transform transition-transform duration-200 ${ca.mcp_enabled ? 'translate-x-5' : 'translate-x-0'}`} />
+                </button>
+              </div>
+              {ca.mcp_enabled && (
+                <div>
+                  <div className="text-sm text-gray-900 dark:text-gray-100 mb-2">Allowed Operations</div>
+                  <div className="text-xs text-gray-500 dark:text-gray-400 mb-2">Leave all unchecked to allow all operations</div>
+                  <div className="flex flex-col gap-2">
+                    {['issue', 'download'].map((op) => {
+                      const ops = ca.mcp_allowed_operations || []
+                      const checked = ops.length === 0 || ops.includes(op)
+                      const labels = { issue: 'Issue Certificates & Submit CSRs', download: 'Download Certificates & Keys' }
+                      return (
+                        <label key={op} className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300 cursor-pointer">
+                          <input type="checkbox" checked={checked}
+                            onChange={() => {
+                              let newOps
+                              if (ops.length === 0) {
+                                newOps = ['issue', 'download'].filter((o) => o !== op)
+                              } else if (ops.includes(op)) {
+                                newOps = ops.filter((o) => o !== op)
+                              } else {
+                                newOps = [...ops, op]
+                              }
+                              mcpUpdateMutation.mutate({ mcp_allowed_operations: newOps.length === 2 ? null : newOps })
+                            }}
+                            className="rounded border-gray-300 dark:border-gray-600 text-gray-800 dark:text-gray-200 focus:ring-gray-400 dark:focus:ring-gray-500" />
+                          {labels[op]}
+                        </label>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>

@@ -86,6 +86,20 @@ SETTINGS_DEFINITIONS = {
         "description": "Minutes between automatic CRL regeneration cycles",
         "category": "maintenance",
     },
+    "mcp_enabled": {
+        "type": "bool",
+        "default": True,
+        "label": "MCP Server Enabled",
+        "description": "Allow AI agents to access the PKI server via MCP",
+        "category": "mcp",
+    },
+    "mcp_allow_approval": {
+        "type": "bool",
+        "default": False,
+        "label": "MCP Allow Approval",
+        "description": "Allow AI agents to approve or deny certificate requests via MCP",
+        "category": "mcp",
+    },
 }
 
 

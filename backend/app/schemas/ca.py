@@ -32,6 +32,8 @@ class CAUpdate(BaseModel):
     crl_distribution_url: str | None = None
     ocsp_url: str | None = None
     crl_regen_interval_hours: int | None = None
+    mcp_enabled: bool | None = None
+    mcp_allowed_operations: list[str] | None = None
 
 
 class CAResponse(BaseModel):
@@ -54,6 +56,8 @@ class CAResponse(BaseModel):
     ocsp_signing_mode: str
     crl_distribution_url: str | None
     ocsp_url: str | None
+    mcp_enabled: bool
+    mcp_allowed_operations: list[str] | None
     created_by: str
     created_at: datetime
 

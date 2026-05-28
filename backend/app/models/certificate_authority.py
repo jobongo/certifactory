@@ -3,6 +3,7 @@ import uuid
 from datetime import datetime, timezone
 
 from sqlalchemy import Boolean, DateTime, Enum, ForeignKey, Integer, String, Text
+from sqlalchemy import JSON
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
@@ -59,6 +60,8 @@ class CertificateAuthority(Base):
     ocsp_signing_key_encrypted: Mapped[str | None] = mapped_column(Text, nullable=True)
     crl_distribution_url: Mapped[str | None] = mapped_column(String(512), nullable=True)
     ocsp_url: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    mcp_enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+    mcp_allowed_operations: Mapped[list | None] = mapped_column(JSON, nullable=True)
     created_by: Mapped[str] = mapped_column(String(36), ForeignKey("users.id"), nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=lambda: datetime.now(timezone.utc))
     updated_at: Mapped[datetime] = mapped_column(

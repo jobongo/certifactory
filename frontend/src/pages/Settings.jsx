@@ -8,12 +8,14 @@ const categoryLabels = {
   security: 'Security',
   certificates: 'Certificates',
   maintenance: 'Maintenance',
+  mcp: 'MCP Server',
 }
 
 const categoryDescriptions = {
   security: 'Session management, authentication, and password policies',
   certificates: 'Default values for certificate and CA creation',
   maintenance: 'Background job schedules and data retention',
+  mcp: 'Model Context Protocol server for AI agent access',
 }
 
 function SettingField({ settingKey, definition, value, onChange }) {
