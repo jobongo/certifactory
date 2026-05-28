@@ -158,7 +158,20 @@ export default function CADetail() {
       key: 'settings', label: 'Settings',
       content: (
         <div className="space-y-3 text-sm">
-          <div><span className="text-gray-500 dark:text-gray-400">Auto-Approve:</span> <span className="ml-2">{ca.auto_approve ? 'Yes' : 'No'}</span></div>
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="text-sm text-gray-900 dark:text-gray-100">Auto-Approve</div>
+              <div className="text-xs text-gray-500 dark:text-gray-400">Automatically approve certificate requests</div>
+            </div>
+            {user?.role === 'admin' ? (
+              <button type="button" onClick={() => mcpUpdateMutation.mutate({ auto_approve: !ca.auto_approve })}
+                className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ${ca.auto_approve ? 'bg-gray-800 dark:bg-gray-200' : 'bg-gray-300 dark:bg-gray-700'}`}>
+                <span className={`pointer-events-none inline-block h-5 w-5 rounded-full bg-white dark:bg-gray-900 shadow transform transition-transform duration-200 ${ca.auto_approve ? 'translate-x-5' : 'translate-x-0'}`} />
+              </button>
+            ) : (
+              <span className="text-sm text-gray-700 dark:text-gray-300">{ca.auto_approve ? 'Yes' : 'No'}</span>
+            )}
+          </div>
           <div><span className="text-gray-500 dark:text-gray-400">OCSP Signing:</span> <span className="ml-2">{ca.ocsp_signing_mode}</span></div>
           <div><span className="text-gray-500 dark:text-gray-400">CRL Interval:</span> <span className="ml-2">{ca.crl_regen_interval_hours}h</span></div>
           {crlInfo && (
