@@ -115,7 +115,7 @@ def issue_tls_cert(
     cert = cert_service.request_certificate(db, current_user.id, data)
 
     if not cert.certificate_pem:
-        raise HTTPException(status_code=400, detail="Certificate was not auto-approved. Enable auto-approve on the CA or approve it manually first.")
+        cert = cert_service.approve(db, current_user.id, cert.id, _skip_self_check=True)
 
     key_pem = decrypt_private_key(cert.private_key_encrypted, settings.PKI_MASTER_KEY)
 

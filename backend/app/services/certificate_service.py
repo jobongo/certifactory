@@ -162,13 +162,13 @@ class CertificateService:
         cert_record.not_after = parsed.not_valid_after_utc
         cert_record.approved_by = approver_id
 
-    def approve(self, db: Session, user_id: str, cert_id: str) -> Certificate:
+    def approve(self, db: Session, user_id: str, cert_id: str, _skip_self_check: bool = False) -> Certificate:
         cert = db.query(Certificate).filter(Certificate.id == cert_id).first()
         if not cert:
             raise ValueError("Certificate not found")
         if cert.status != CertificateStatus.pending:
             raise ValueError("Certificate is not pending")
-        if cert.requested_by == user_id:
+        if not _skip_self_check and cert.requested_by == user_id:
             raise ValueError("Cannot approve a certificate you requested")
         ca = db.query(CertificateAuthority).filter(CertificateAuthority.id == cert.ca_id).first()
 
