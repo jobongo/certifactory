@@ -1,8 +1,19 @@
 import pytest
-from app.mcp_server import resolve_user
+import app.mcp_server as mcp_server_module
+from app.mcp_server import approve_certificate, create_certificate, deny_certificate, resolve_user
 from app.models import User, UserRole
 from app.models.api_token import ApiToken
 from app.services.auth_service import AuthService
+from tests.conftest import TestingSessionLocal
+
+
+@pytest.fixture(autouse=True)
+def patch_mcp_session():
+    """Redirect MCP server SessionLocal to the test database."""
+    original = mcp_server_module.SessionLocal
+    mcp_server_module.SessionLocal = TestingSessionLocal
+    yield
+    mcp_server_module.SessionLocal = original
 
 
 @pytest.fixture
@@ -46,3 +57,59 @@ def test_resolve_user_missing_prefix(db):
 def test_resolve_user_none(db):
     with pytest.raises(ValueError, match="API token required"):
         resolve_user(None, db)
+
+
+@pytest.fixture
+def test_ca(client, admin_headers):
+    ca_data = {
+        "name": "MCP Test CA", "key_algorithm": "RSA", "key_size": 2048,
+        "validity_days": 365, "auto_approve": True,
+        "subject": {"CN": "MCP Test CA"}
+    }
+    return client.post("/api/v1/cas", json=ca_data, headers=admin_headers).json()
+
+
+@pytest.fixture
+def manual_ca(client, admin_headers):
+    ca_data = {
+        "name": "Manual CA", "key_algorithm": "RSA", "key_size": 2048,
+        "validity_days": 365, "auto_approve": False,
+        "subject": {"CN": "Manual CA"}
+    }
+    return client.post("/api/v1/cas", json=ca_data, headers=admin_headers).json()
+
+
+def test_create_certificate_auto_approve(db, mcp_user, mcp_token, test_ca):
+    result = create_certificate(
+        token=mcp_token, ca_id=test_ca["id"], common_name="agent.example.com",
+        type="server", key_algorithm="RSA", key_size=2048, validity_days=90,
+    )
+    assert "active" in result
+    assert "agent.example.com" in result
+
+
+def test_create_certificate_pending(db, mcp_user, mcp_token, manual_ca):
+    result = create_certificate(
+        token=mcp_token, ca_id=manual_ca["id"], common_name="pending.example.com",
+    )
+    assert "pending" in result
+
+
+def test_approve_self_blocked_via_mcp(db, mcp_user, mcp_token, manual_ca):
+    result = create_certificate(
+        token=mcp_token, ca_id=manual_ca["id"], common_name="self-block.example.com",
+    )
+    import ast
+    cert_dict = ast.literal_eval(result)
+    with pytest.raises(ValueError, match="Cannot approve"):
+        approve_certificate(token=mcp_token, cert_id=cert_dict["id"])
+
+
+def test_deny_self_blocked_via_mcp(db, mcp_user, mcp_token, manual_ca):
+    result = create_certificate(
+        token=mcp_token, ca_id=manual_ca["id"], common_name="self-deny-mcp.example.com",
+    )
+    import ast
+    cert_dict = ast.literal_eval(result)
+    with pytest.raises(ValueError, match="Cannot deny"):
+        deny_certificate(token=mcp_token, cert_id=cert_dict["id"])

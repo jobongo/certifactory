@@ -182,3 +182,112 @@ def get_crl_info(token: str, ca_id: str) -> str:
         })
     finally:
         db.close()
+
+
+@mcp.tool()
+def create_certificate(
+    token: str, ca_id: str, common_name: str,
+    organization: str | None = None, org_unit: str | None = None,
+    country: str | None = None, state: str | None = None, locality: str | None = None,
+    san: list[dict] | None = None, type: str = "server",
+    key_algorithm: str = "RSA", key_size: int = 2048,
+    validity_days: int | None = None,
+    key_usage: list[str] | None = None, extended_key_usage: list[str] | None = None,
+) -> str:
+    """Create and issue a new certificate. If the CA has auto-approve enabled, the certificate is issued immediately. Otherwise it will be pending approval."""
+    db = SessionLocal()
+    try:
+        user = resolve_user(token, db)
+        _check_role(user, UserRole.admin, UserRole.operator, UserRole.requester)
+        subject = {"CN": common_name}
+        if organization:
+            subject["O"] = organization
+        if org_unit:
+            subject["OU"] = org_unit
+        if country:
+            subject["C"] = country
+        if state:
+            subject["ST"] = state
+        if locality:
+            subject["L"] = locality
+        data = {
+            "ca_id": ca_id, "subject": subject, "san": san or [],
+            "type": type, "key_algorithm": key_algorithm,
+            "key_size": key_size, "validity_days": validity_days,
+        }
+        if key_usage:
+            data["key_usage"] = key_usage
+        if extended_key_usage:
+            data["extended_key_usage"] = extended_key_usage
+        cert = cert_service.request_certificate(db, user.id, data)
+        return str(_cert_to_dict(cert))
+    finally:
+        db.close()
+
+
+@mcp.tool()
+def submit_csr(
+    token: str, ca_id: str, csr_pem: str,
+    type: str = "server", validity_days: int | None = None,
+) -> str:
+    """Submit a PEM-encoded Certificate Signing Request for signing."""
+    db = SessionLocal()
+    try:
+        user = resolve_user(token, db)
+        _check_role(user, UserRole.admin, UserRole.operator, UserRole.requester)
+        data = {"ca_id": ca_id, "csr_pem": csr_pem, "type": type}
+        if validity_days:
+            data["validity_days"] = validity_days
+        cert = cert_service.submit_csr(db, user.id, data)
+        return str(_cert_to_dict(cert))
+    finally:
+        db.close()
+
+
+@mcp.tool()
+def approve_certificate(token: str, cert_id: str) -> str:
+    """Approve a pending certificate. Cannot approve a certificate you requested."""
+    db = SessionLocal()
+    try:
+        user = resolve_user(token, db)
+        _check_role(user, UserRole.admin, UserRole.operator)
+        cert = cert_service.approve(db, user.id, cert_id)
+        return str(_cert_to_dict(cert))
+    finally:
+        db.close()
+
+
+@mcp.tool()
+def deny_certificate(token: str, cert_id: str) -> str:
+    """Deny a pending certificate. Cannot deny a certificate you requested."""
+    db = SessionLocal()
+    try:
+        user = resolve_user(token, db)
+        _check_role(user, UserRole.admin, UserRole.operator)
+        cert = cert_service.deny(db, user.id, cert_id)
+        return str(_cert_to_dict(cert))
+    finally:
+        db.close()
+
+
+@mcp.tool()
+def download_certificate(
+    token: str, cert_id: str, format: str = "pem",
+    key_only: bool = False, passphrase: str | None = None,
+) -> str:
+    """Download a certificate in PEM, DER, or PKCS12 format. Set key_only=true to download only the private key. Passphrase is required for PKCS12."""
+    db = SessionLocal()
+    try:
+        user = resolve_user(token, db)
+        _check_role(user, UserRole.admin, UserRole.operator, UserRole.requester)
+        cert = db.query(Certificate).filter(Certificate.id == cert_id).first()
+        if not cert:
+            raise ValueError("Certificate not found")
+        if user.role == UserRole.requester and cert.requested_by != user.id:
+            raise ValueError("Certificate not found")
+        data = cert_service.download(cert_id, format, db, passphrase=passphrase, key_only=key_only)
+        if format == "pem" or key_only:
+            return data.decode() if isinstance(data, bytes) else data
+        return base64.b64encode(data).decode()
+    finally:
+        db.close()
