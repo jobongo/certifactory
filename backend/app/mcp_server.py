@@ -65,7 +65,7 @@ def _cert_to_dict(cert: Certificate) -> dict:
     }
 
 
-mcp = FastMCP("Certifactory", instructions="PKI certificate management. Authenticate with a cf_ API token.")
+mcp = FastMCP("Certifactory", instructions="PKI certificate management. Authenticate with a cf_ API token.", stateless_http=True)
 
 
 @mcp.tool()

@@ -21,7 +21,8 @@ async def lifespan(app_instance):
         scheduler.add_job(check_expirations, "interval", hours=24, id="expiry_check")
         scheduler.add_job(cleanup_audit_logs, "interval", hours=24, id="audit_cleanup")
         scheduler.start()
-        yield
+        async with mcp.session_manager.run():
+            yield
         scheduler.shutdown()
     else:
         yield
@@ -49,7 +50,7 @@ app.include_router(tokens.router)
 app.include_router(settings_router.router)
 app.include_router(templates.router)
 
-app.mount("/mcp", mcp.streamable_http_app())
+app.mount("", mcp.streamable_http_app())
 
 
 @app.get("/health")
