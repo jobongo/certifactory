@@ -1,6 +1,6 @@
 import pytest
 import app.mcp_server as mcp_server_module
-from app.mcp_server import approve_certificate, create_certificate, deny_certificate, resolve_user
+from app.mcp_server import approve_certificate, check_certificate_status, create_certificate, deny_certificate, resolve_user
 from app.models import User, UserRole
 from app.models.api_token import ApiToken
 from app.services.auth_service import AuthService
@@ -113,3 +113,15 @@ def test_deny_self_blocked_via_mcp(db, mcp_user, mcp_token, manual_ca):
     cert_dict = ast.literal_eval(result)
     with pytest.raises(ValueError, match="Cannot deny"):
         deny_certificate(token=mcp_token, cert_id=cert_dict["id"])
+
+
+def test_check_certificate_status_active(db, mcp_user, mcp_token, test_ca):
+    result = create_certificate(
+        token=mcp_token, ca_id=test_ca["id"], common_name="status-check.example.com",
+        type="server", key_algorithm="RSA", key_size=2048, validity_days=90,
+    )
+    import ast
+    cert_dict = ast.literal_eval(result)
+    status_result = check_certificate_status(token=mcp_token, cert_id=cert_dict["id"])
+    assert "'status': 'active'" in status_result
+    assert "status-check.example.com" in status_result

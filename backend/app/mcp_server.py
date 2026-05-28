@@ -185,6 +185,35 @@ def get_crl_info(token: str, ca_id: str) -> str:
 
 
 @mcp.tool()
+def check_certificate_status(token: str, cert_id: str) -> str:
+    """Check the revocation status of a certificate (good, revoked, or unknown). Returns status, validity dates, and revocation details if revoked."""
+    db = SessionLocal()
+    try:
+        user = resolve_user(token, db)
+        _check_role(user, UserRole.admin, UserRole.operator, UserRole.auditor, UserRole.requester)
+        cert = db.query(Certificate).filter(Certificate.id == cert_id).first()
+        if not cert:
+            raise ValueError("Certificate not found")
+        if user.role == UserRole.requester and cert.requested_by != user.id:
+            raise ValueError("Certificate not found")
+        if not cert.certificate_pem:
+            return str({"status": "unknown", "reason": "Certificate not yet issued"})
+        result = {
+            "status": cert.status.value,
+            "subject_dn": cert.subject_dn,
+            "serial_number": cert.serial_number,
+            "not_before": cert.not_before.isoformat() if cert.not_before else None,
+            "not_after": cert.not_after.isoformat() if cert.not_after else None,
+        }
+        if cert.status == CertificateStatus.revoked:
+            result["revocation_date"] = cert.revocation_date.isoformat() if cert.revocation_date else None
+            result["revocation_reason"] = cert.revocation_reason.value if cert.revocation_reason else None
+        return str(result)
+    finally:
+        db.close()
+
+
+@mcp.tool()
 def create_certificate(
     token: str, ca_id: str, common_name: str,
     organization: str | None = None, org_unit: str | None = None,
