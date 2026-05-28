@@ -23,6 +23,9 @@ services:
       PKI_MASTER_KEY: ${PKI_MASTER_KEY:?Set PKI_MASTER_KEY in .env}
       JWT_SECRET_KEY: ${JWT_SECRET_KEY:?Set JWT_SECRET_KEY in .env}
       CORS_ORIGINS: '["https://localhost","http://localhost"]'
+      SSL_CERT_DIR: /etc/nginx/certs
+    volumes:
+      - ${SSL_CERT_DIR:-certs}:/etc/nginx/certs
     depends_on:
       db:
         condition: service_healthy

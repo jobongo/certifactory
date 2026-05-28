@@ -1,8 +1,12 @@
 import { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { getSettings, updateSettings } from '../api/settings'
+import { getTLSInfo, uploadTLSCert, issueTLSCert } from '../api/tls'
+import { getCAs } from '../api/cas'
 import Card, { CardHeader, CardBody } from '../components/ui/Card'
 import Button from '../components/ui/Button'
+import Input from '../components/ui/Input'
+import Select from '../components/ui/Select'
 
 const categoryLabels = {
   security: 'Security',
@@ -66,6 +70,111 @@ function SettingField({ settingKey, definition, value, onChange }) {
           focus:outline-none focus:ring-1 focus:ring-gray-400 dark:focus:ring-gray-500"
       />
     </div>
+  )
+}
+
+function TLSCard() {
+  const queryClient = useQueryClient()
+  const [mode, setMode] = useState('upload')
+  const [certPem, setCertPem] = useState('')
+  const [keyPem, setKeyPem] = useState('')
+  const [caId, setCaId] = useState('')
+  const [cn, setCn] = useState('')
+  const [sanInput, setSanInput] = useState('')
+  const [validityDays, setValidityDays] = useState(365)
+  const [result, setResult] = useState(null)
+  const [error, setError] = useState('')
+
+  const { data: tlsInfo } = useQuery({ queryKey: ['tls-info'], queryFn: getTLSInfo })
+  const { data: cas } = useQuery({ queryKey: ['cas-select'], queryFn: () => getCAs(1, 100) })
+
+  const uploadMutation = useMutation({
+    mutationFn: uploadTLSCert,
+    onSuccess: (data) => { setResult(data.message); setError(''); setCertPem(''); setKeyPem(''); queryClient.invalidateQueries({ queryKey: ['tls-info'] }) },
+    onError: (err) => { setError(err.response?.data?.detail || 'Upload failed'); setResult(null) },
+  })
+
+  const issueMutation = useMutation({
+    mutationFn: issueTLSCert,
+    onSuccess: (data) => { setResult(data.message); setError(''); setCn(''); setSanInput(''); queryClient.invalidateQueries({ queryKey: ['tls-info'] }) },
+    onError: (err) => { setError(err.response?.data?.detail || 'Issue failed'); setResult(null) },
+  })
+
+  const handleUpload = () => {
+    setError(''); setResult(null)
+    uploadMutation.mutate({ certificate_pem: certPem, private_key_pem: keyPem })
+  }
+
+  const handleIssue = () => {
+    setError(''); setResult(null)
+    const san = sanInput ? sanInput.split(',').map((s) => ({ type: 'DNS', value: s.trim() })).filter((s) => s.value) : undefined
+    issueMutation.mutate({ ca_id: caId, common_name: cn, san, validity_days: Number(validityDays) })
+  }
+
+  const caOptions = [{ value: '', label: 'Select CA...' }, ...(cas?.items?.map((ca) => ({ value: ca.id, label: ca.name })) || [])]
+
+  return (
+    <Card>
+      <CardHeader>
+        <h2 className="text-sm font-semibold text-gray-900 dark:text-gray-100">TLS Certificate</h2>
+        <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Server certificate for the Certifactory proxy</p>
+      </CardHeader>
+      <CardBody>
+        {tlsInfo?.exists && (
+          <div className="space-y-1.5 pb-4 border-b border-gray-100 dark:border-gray-800 mb-4">
+            <div className="text-xs uppercase tracking-wider text-gray-400 dark:text-gray-600 mb-2">Current Certificate</div>
+            <div className="text-sm"><span className="text-gray-500 dark:text-gray-400">Subject:</span> <span className="ml-1 text-gray-900 dark:text-gray-100">{tlsInfo.subject_dn}</span></div>
+            <div className="text-sm"><span className="text-gray-500 dark:text-gray-400">Issuer:</span> <span className="ml-1">{tlsInfo.issuer_dn}</span></div>
+            <div className="text-sm"><span className="text-gray-500 dark:text-gray-400">Expires:</span> <span className="ml-1">{tlsInfo.not_after ? new Date(tlsInfo.not_after).toLocaleDateString() : '—'}</span></div>
+            {tlsInfo.self_signed && <div className="text-xs text-amber-600 dark:text-amber-400">Self-signed certificate</div>}
+          </div>
+        )}
+
+        <div className="flex gap-1 text-sm mb-4">
+          <button type="button" onClick={() => { setMode('upload'); setError(''); setResult(null) }}
+            className={`px-3 py-1 rounded ${mode === 'upload' ? 'bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-gray-100' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'}`}>
+            Upload
+          </button>
+          <button type="button" onClick={() => { setMode('issue'); setError(''); setResult(null) }}
+            className={`px-3 py-1 rounded ${mode === 'issue' ? 'bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-gray-100' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300'}`}>
+            Issue from CA
+          </button>
+        </div>
+
+        {mode === 'upload' && (
+          <div className="space-y-3">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Certificate PEM</label>
+              <textarea value={certPem} onChange={(e) => setCertPem(e.target.value)} rows={4} placeholder="-----BEGIN CERTIFICATE-----"
+                className="w-full px-3 py-2 rounded border text-xs font-mono bg-white dark:bg-surface-4 border-gray-300 dark:border-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-600 focus:outline-none focus:ring-1 focus:ring-gray-400 dark:focus:ring-gray-500" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Private Key PEM</label>
+              <textarea value={keyPem} onChange={(e) => setKeyPem(e.target.value)} rows={4} placeholder="-----BEGIN PRIVATE KEY-----"
+                className="w-full px-3 py-2 rounded border text-xs font-mono bg-white dark:bg-surface-4 border-gray-300 dark:border-gray-700 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-600 focus:outline-none focus:ring-1 focus:ring-gray-400 dark:focus:ring-gray-500" />
+            </div>
+            <Button size="sm" onClick={handleUpload} disabled={uploadMutation.isPending || !certPem || !keyPem}>
+              {uploadMutation.isPending ? 'Uploading...' : 'Upload Certificate'}
+            </Button>
+          </div>
+        )}
+
+        {mode === 'issue' && (
+          <div className="space-y-3">
+            <Select label="Issuing CA" options={caOptions} value={caId} onChange={(e) => setCaId(e.target.value)} />
+            <Input label="Common Name" value={cn} onChange={(e) => setCn(e.target.value)} placeholder="e.g. certifactory.example.com" />
+            <Input label="SANs (comma-separated)" value={sanInput} onChange={(e) => setSanInput(e.target.value)} placeholder="e.g. certifactory.local, 192.168.1.100" />
+            <Input label="Validity (days)" type="number" value={validityDays} onChange={(e) => setValidityDays(e.target.value)} />
+            <Button size="sm" onClick={handleIssue} disabled={issueMutation.isPending || !caId || !cn}>
+              {issueMutation.isPending ? 'Issuing...' : 'Issue Certificate'}
+            </Button>
+          </div>
+        )}
+
+        {result && <p className="text-sm text-amber-600 dark:text-amber-400 mt-3">{result}</p>}
+        {error && <p className="text-sm text-red-500 mt-3">{error}</p>}
+      </CardBody>
+    </Card>
   )
 }
 
@@ -193,6 +302,7 @@ export default function Settings() {
             </Card>
           )
         })}
+        <TLSCard />
       </div>
     </div>
   )

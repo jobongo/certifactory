@@ -11,6 +11,7 @@ class Settings(BaseSettings):
     DEFAULT_CRL_REGEN_HOURS: int = 24
     EXPIRY_WARNING_DAYS: int = 30
     CORS_ORIGINS: list[str] = ["http://localhost:3000", "http://localhost:5173", "http://localhost:5175"]
+    SSL_CERT_DIR: str = "/etc/nginx/certs"
 
     model_config = {"env_file": ".env", "env_file_encoding": "utf-8"}
 
