@@ -137,7 +137,7 @@ def approve_certificate(
     current_user: User = Depends(require_role(UserRole.admin, UserRole.operator)),
 ):
     try:
-        return cert_service.approve(db, current_user.id, cert_id)
+        return cert_service.approve(db, current_user.id, cert_id, _skip_self_check=not getattr(current_user, '_is_api_token', False))
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
