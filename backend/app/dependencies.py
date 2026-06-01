@@ -31,7 +31,6 @@ def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(securit
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found or inactive")
         api_token.last_used_at = datetime.now(timezone.utc)
         db.commit()
-        user._is_api_token = True
         return user
 
     payload = auth_service.decode_token(token)
@@ -40,7 +39,6 @@ def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(securit
     user = db.query(User).filter(User.id == payload["sub"]).first()
     if user is None or not user.is_active:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found or inactive")
-    user._is_api_token = False
     return user
 
 def require_role(*roles: UserRole):

@@ -12,6 +12,7 @@ class UserUpdate(BaseModel):
     email: EmailStr | None = None
     role: str | None = None
     is_active: bool | None = None
+    can_self_approve: bool | None = None
 
 class UserResponse(BaseModel):
     id: str
@@ -19,6 +20,7 @@ class UserResponse(BaseModel):
     email: str
     role: str
     is_active: bool
+    can_self_approve: bool
     created_at: datetime
     model_config = {"from_attributes": True}
 

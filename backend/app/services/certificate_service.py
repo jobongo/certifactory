@@ -169,7 +169,10 @@ class CertificateService:
         if cert.status != CertificateStatus.pending:
             raise ValueError("Certificate is not pending")
         if not _skip_self_check and cert.requested_by == user_id:
-            raise ValueError("Cannot approve a certificate you requested")
+            from app.models import User
+            user = db.query(User).filter(User.id == user_id).first()
+            if not user or not user.can_self_approve:
+                raise ValueError("Cannot approve a certificate you requested")
         ca = db.query(CertificateAuthority).filter(CertificateAuthority.id == cert.ca_id).first()
 
         if cert.private_key_encrypted:

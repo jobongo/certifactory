@@ -29,7 +29,7 @@ export default function Users() {
   })
 
   const roleChange = useMutation({
-    mutationFn: ({ id, role }) => updateUser(id, { role }),
+    mutationFn: ({ id, ...data }) => updateUser(id, data),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['users'] }),
   })
 
@@ -59,6 +59,15 @@ export default function Users() {
           className="bg-white dark:bg-surface-4 border border-gray-200 dark:border-gray-700 rounded px-2 py-1 text-sm text-gray-900 dark:text-gray-100">
           {roleOptions.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
         </select>
+      ),
+    },
+    {
+      key: 'can_self_approve', label: 'Self-Approve',
+      render: (val, row) => (
+        <button type="button" onClick={() => roleChange.mutate({ id: row.id, can_self_approve: !val })}
+          className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ${val ? 'bg-gray-800 dark:bg-gray-200' : 'bg-gray-300 dark:bg-gray-700'}`}>
+          <span className={`pointer-events-none inline-block h-4 w-4 rounded-full bg-white dark:bg-gray-900 shadow transform transition-transform duration-200 ${val ? 'translate-x-4' : 'translate-x-0'}`} />
+        </button>
       ),
     },
     { key: 'is_active', label: 'Status', render: (val) => <Badge variant={val ? 'success' : 'danger'}>{val ? 'Active' : 'Inactive'}</Badge> },

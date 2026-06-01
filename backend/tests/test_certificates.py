@@ -132,7 +132,10 @@ def test_download_pem(client, admin_headers, root_ca):
     assert response.status_code == 200
 
 
-def test_approve_self_request_allowed_for_jwt_user(client, admin_headers, admin_user):
+def test_approve_self_request_allowed_when_can_self_approve(client, admin_headers, admin_user, db):
+    admin_user.can_self_approve = True
+    db.commit()
+
     ca_data = {
         "name": "Test CA", "key_algorithm": "RSA", "key_size": 2048,
         "validity_days": 365, "auto_approve": False,
@@ -152,29 +155,25 @@ def test_approve_self_request_allowed_for_jwt_user(client, admin_headers, admin_
     assert resp.json()["status"] == "active"
 
 
-def test_approve_self_request_blocked_for_api_token(client, db, admin_user):
-    from app.models.api_token import ApiToken
-    raw_token = ApiToken.generate_token()
-    token = ApiToken(user_id=admin_user.id, name="test-token", token_hash=ApiToken.hash_token(raw_token), token_prefix=raw_token[:10])
-    db.add(token)
+def test_approve_self_request_blocked_when_cannot_self_approve(client, admin_headers, admin_user, db):
+    admin_user.can_self_approve = False
     db.commit()
-    api_headers = {"Authorization": f"Bearer {raw_token}"}
 
     ca_data = {
-        "name": "Test CA API", "key_algorithm": "RSA", "key_size": 2048,
+        "name": "Test CA 3", "key_algorithm": "RSA", "key_size": 2048,
         "validity_days": 365, "auto_approve": False,
-        "subject": {"CN": "Test CA API"}
+        "subject": {"CN": "Test CA 3"}
     }
-    ca = client.post("/api/v1/cas", json=ca_data, headers=api_headers).json()
+    ca = client.post("/api/v1/cas", json=ca_data, headers=admin_headers).json()
 
     cert_data = {
-        "ca_id": ca["id"], "subject": {"CN": "api-self-approve-test"},
+        "ca_id": ca["id"], "subject": {"CN": "no-self-approve-test"},
         "type": "server", "key_algorithm": "RSA", "key_size": 2048, "validity_days": 90
     }
-    cert = client.post("/api/v1/certificates", json=cert_data, headers=api_headers).json()
+    cert = client.post("/api/v1/certificates", json=cert_data, headers=admin_headers).json()
     assert cert["status"] == "pending"
 
-    resp = client.post(f"/api/v1/certificates/{cert['id']}/approve", headers=api_headers)
+    resp = client.post(f"/api/v1/certificates/{cert['id']}/approve", headers=admin_headers)
     assert resp.status_code == 400
     assert "cannot approve" in resp.json()["detail"].lower()
 
