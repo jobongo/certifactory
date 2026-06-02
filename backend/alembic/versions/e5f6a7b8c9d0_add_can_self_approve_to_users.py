@@ -19,9 +19,12 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    op.add_column('users', sa.Column('can_self_approve', sa.Boolean(), server_default='0', nullable=True))
+    op.add_column('users', sa.Column('can_self_approve', sa.Boolean(), server_default=sa.text('false'), nullable=True))
     bind = op.get_bind()
-    bind.execute(sa.text("UPDATE users SET can_self_approve = 1 WHERE role = 'admin'"))
+    if bind.dialect.name == "postgresql":
+        bind.execute(sa.text("UPDATE users SET can_self_approve = true WHERE role = 'admin'"))
+    else:
+        bind.execute(sa.text("UPDATE users SET can_self_approve = 1 WHERE role = 'admin'"))
 
 
 def downgrade() -> None:
