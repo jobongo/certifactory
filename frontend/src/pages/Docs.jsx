@@ -238,13 +238,12 @@ function CertificatesGuide() {
       </Section>
 
       <Section title="Generating a CSR with OpenSSL">
-        <CodeBlock>{`# Generate a private key and CSR
-openssl req -new -newkey rsa:2048 -nodes \\
+        <P>Generate a private key and CSR:</P>
+        <CodeBlock>{`openssl req -new -newkey rsa:2048 -nodes \\
   -keyout server.key -out server.csr \\
-  -subj "/CN=myserver.example.com/O=My Organization/C=US"
-
-# View the CSR contents to verify
-openssl req -in server.csr -text -noout`}</CodeBlock>
+  -subj "/CN=myserver.example.com/O=My Organization/C=US"`}</CodeBlock>
+        <P>View the CSR contents to verify:</P>
+        <CodeBlock>{`openssl req -in server.csr -text -noout`}</CodeBlock>
         <P>Copy the contents of <Code>server.csr</Code> and paste them into Certifactory's Submit CSR form. Keep <Code>server.key</Code> safe — you'll need it when installing the certificate.</P>
       </Section>
 
@@ -529,34 +528,28 @@ function APIGuide() {
       <P>Certifactory provides a complete REST API. For interactive documentation with try-it-out functionality, visit <a href="/docs" className="underline text-gray-900 dark:text-gray-100">/docs</a> (Swagger UI).</P>
 
       <Section title="Authentication" defaultOpen>
-        <P><strong>JWT Token</strong> (for interactive sessions):</P>
-        <CodeBlock>{`# Login and get a token
-curl -X POST https://your-server/api/v1/auth/login \\
+        <P><strong>JWT Token</strong> — Login and get a token:</P>
+        <CodeBlock>{`curl -X POST https://your-server/api/v1/auth/login \\
   -H "Content-Type: application/json" \\
-  -d '{"username": "admin", "password": "admin"}'
-
-# Use the token
-curl https://your-server/api/v1/cas \\
-  -H "Authorization: Bearer eyJ..."
-
-# Refresh an expired access token
-curl -X POST https://your-server/api/v1/auth/refresh \\
+  -d '{"username": "admin", "password": "admin"}'`}</CodeBlock>
+        <P>Use the token in subsequent requests:</P>
+        <CodeBlock>{`curl https://your-server/api/v1/cas \\
+  -H "Authorization: Bearer eyJ..."`}</CodeBlock>
+        <P>Refresh an expired access token:</P>
+        <CodeBlock>{`curl -X POST https://your-server/api/v1/auth/refresh \\
   -H "Content-Type: application/json" \\
   -d '{"refresh_token": "eyJ..."}'`}</CodeBlock>
-
-        <P><strong>API Token</strong> (for scripts and automation):</P>
-        <CodeBlock>{`# Create a token from the Profile page, then use it:
-curl https://your-server/api/v1/cas \\
+        <P><strong>API Token</strong> — Create from the Profile page, then use it:</P>
+        <CodeBlock>{`curl https://your-server/api/v1/cas \\
   -H "Authorization: Bearer cf_a1b2c3d4..."`}</CodeBlock>
       </Section>
 
       <Section title="Certificate Authorities">
-        <CodeBlock>{`# List all CAs
-curl https://your-server/api/v1/cas \\
-  -H "Authorization: Bearer <token>"
-
-# Create a Root CA
-curl -X POST https://your-server/api/v1/cas \\
+        <P>List all CAs:</P>
+        <CodeBlock>{`curl https://your-server/api/v1/cas \\
+  -H "Authorization: Bearer <token>"`}</CodeBlock>
+        <P>Create a Root CA:</P>
+        <CodeBlock>{`curl -X POST https://your-server/api/v1/cas \\
   -H "Authorization: Bearer <token>" \\
   -H "Content-Type: application/json" \\
   -d '{
@@ -566,10 +559,9 @@ curl -X POST https://your-server/api/v1/cas \\
     "key_size": 2048,
     "validity_days": 3650,
     "auto_approve": true
-  }'
-
-# Create an Intermediate CA
-curl -X POST https://your-server/api/v1/cas/<root_ca_id>/intermediate \\
+  }'`}</CodeBlock>
+        <P>Create an Intermediate CA:</P>
+        <CodeBlock>{`curl -X POST https://your-server/api/v1/cas/<root_ca_id>/intermediate \\
   -H "Authorization: Bearer <token>" \\
   -H "Content-Type: application/json" \\
   -d '{
@@ -578,16 +570,15 @@ curl -X POST https://your-server/api/v1/cas/<root_ca_id>/intermediate \\
     "key_algorithm": "RSA",
     "key_size": 2048,
     "validity_days": 1825
-  }'
-
-# Get CA certificate chain
-curl https://your-server/api/v1/cas/<ca_id>/chain \\
+  }'`}</CodeBlock>
+        <P>Get CA certificate chain:</P>
+        <CodeBlock>{`curl https://your-server/api/v1/cas/<ca_id>/chain \\
   -H "Authorization: Bearer <token>"`}</CodeBlock>
       </Section>
 
       <Section title="Certificates">
-        <CodeBlock>{`# Request a new certificate
-curl -X POST https://your-server/api/v1/certificates \\
+        <P>Request a new certificate:</P>
+        <CodeBlock>{`curl -X POST https://your-server/api/v1/certificates \\
   -H "Authorization: Bearer <token>" \\
   -H "Content-Type: application/json" \\
   -d '{
@@ -601,10 +592,9 @@ curl -X POST https://your-server/api/v1/certificates \\
     "key_algorithm": "RSA",
     "key_size": 2048,
     "validity_days": 365
-  }'
-
-# Submit a CSR
-curl -X POST https://your-server/api/v1/certificates/csr \\
+  }'`}</CodeBlock>
+        <P>Submit a CSR:</P>
+        <CodeBlock>{`curl -X POST https://your-server/api/v1/certificates/csr \\
   -H "Authorization: Bearer <token>" \\
   -H "Content-Type: application/json" \\
   -d '{
@@ -612,46 +602,40 @@ curl -X POST https://your-server/api/v1/certificates/csr \\
     "csr_pem": "-----BEGIN CERTIFICATE REQUEST-----\\nMIIC...",
     "type": "server",
     "validity_days": 365
-  }'
-
-# Download certificate
-curl https://your-server/api/v1/certificates/<id>/download?format=pem \\
-  -H "Authorization: Bearer <token>" -o cert.pem
-
-# Download private key
-curl "https://your-server/api/v1/certificates/<id>/download?key_only=true" \\
-  -H "Authorization: Bearer <token>" -o private_key.pem
-
-# Approve / Deny / Revoke
-curl -X POST https://your-server/api/v1/certificates/<id>/approve \\
-  -H "Authorization: Bearer <token>"
-
-curl -X POST https://your-server/api/v1/certificates/<id>/revoke \\
+  }'`}</CodeBlock>
+        <P>Download certificate (PEM):</P>
+        <CodeBlock>{`curl https://your-server/api/v1/certificates/<id>/download?format=pem \\
+  -H "Authorization: Bearer <token>" -o cert.pem`}</CodeBlock>
+        <P>Download private key:</P>
+        <CodeBlock>{`curl "https://your-server/api/v1/certificates/<id>/download?key_only=true" \\
+  -H "Authorization: Bearer <token>" -o private_key.pem`}</CodeBlock>
+        <P>Approve a pending certificate:</P>
+        <CodeBlock>{`curl -X POST https://your-server/api/v1/certificates/<id>/approve \\
+  -H "Authorization: Bearer <token>"`}</CodeBlock>
+        <P>Revoke a certificate:</P>
+        <CodeBlock>{`curl -X POST https://your-server/api/v1/certificates/<id>/revoke \\
   -H "Authorization: Bearer <token>" \\
   -H "Content-Type: application/json" \\
   -d '{"reason": "key_compromise"}'`}</CodeBlock>
       </Section>
 
       <Section title="CRL & OCSP">
-        <CodeBlock>{`# Download CRL (no auth required)
-curl https://your-server/api/v1/cas/<ca_id>/crl -o crl.pem
-
-# Force CRL regeneration
-curl -X POST https://your-server/api/v1/cas/<ca_id>/crl/generate \\
-  -H "Authorization: Bearer <token>"
-
-# OCSP query
-openssl ocsp -issuer ca.pem -cert server.pem \\
+        <P>Download CRL (no auth required):</P>
+        <CodeBlock>{`curl https://your-server/api/v1/cas/<ca_id>/crl -o crl.pem`}</CodeBlock>
+        <P>Force CRL regeneration:</P>
+        <CodeBlock>{`curl -X POST https://your-server/api/v1/cas/<ca_id>/crl/generate \\
+  -H "Authorization: Bearer <token>"`}</CodeBlock>
+        <P>OCSP query:</P>
+        <CodeBlock>{`openssl ocsp -issuer ca.pem -cert server.pem \\
   -url https://your-server/api/v1/ocsp/<ca_id> -resp_text`}</CodeBlock>
       </Section>
 
       <Section title="Templates">
-        <CodeBlock>{`# List templates for a CA
-curl https://your-server/api/v1/cas/<ca_id>/templates \\
-  -H "Authorization: Bearer <token>"
-
-# Create a template (admin only)
-curl -X POST https://your-server/api/v1/cas/<ca_id>/templates \\
+        <P>List templates for a CA:</P>
+        <CodeBlock>{`curl https://your-server/api/v1/cas/<ca_id>/templates \\
+  -H "Authorization: Bearer <token>"`}</CodeBlock>
+        <P>Create a template (admin only):</P>
+        <CodeBlock>{`curl -X POST https://your-server/api/v1/cas/<ca_id>/templates \\
   -H "Authorization: Bearer <token>" \\
   -H "Content-Type: application/json" \\
   -d '{
@@ -664,37 +648,43 @@ curl -X POST https://your-server/api/v1/cas/<ca_id>/templates \\
   }'`}</CodeBlock>
       </Section>
 
-      <Section title="Settings & TLS">
-        <CodeBlock>{`# Get all settings (admin only)
-curl https://your-server/api/v1/settings \\
-  -H "Authorization: Bearer <token>"
-
-# Update settings
-curl -X PUT https://your-server/api/v1/settings \\
+      <Section title="Settings">
+        <P>Get all settings (admin only):</P>
+        <CodeBlock>{`curl https://your-server/api/v1/settings \\
+  -H "Authorization: Bearer <token>"`}</CodeBlock>
+        <P>Update settings:</P>
+        <CodeBlock>{`curl -X PUT https://your-server/api/v1/settings \\
   -H "Authorization: Bearer <token>" \\
   -H "Content-Type: application/json" \\
-  -d '{"session_timeout_minutes": 60, "mcp_enabled": true}'
+  -d '{"session_timeout_minutes": 60, "mcp_enabled": true}'`}</CodeBlock>
+      </Section>
 
-# Get current TLS certificate info
-curl https://your-server/api/v1/tls \\
-  -H "Authorization: Bearer <token>"
-
-# Upload TLS certificate
-curl -X POST https://your-server/api/v1/tls/upload \\
+      <Section title="TLS Certificate">
+        <P>Get current TLS certificate info:</P>
+        <CodeBlock>{`curl https://your-server/api/v1/tls \\
+  -H "Authorization: Bearer <token>"`}</CodeBlock>
+        <P>Upload a TLS certificate:</P>
+        <CodeBlock>{`curl -X POST https://your-server/api/v1/tls/upload \\
   -H "Authorization: Bearer <token>" \\
   -H "Content-Type: application/json" \\
-  -d '{"certificate_pem": "-----BEGIN CERTIFICATE-----\\n...", "private_key_pem": "-----BEGIN PRIVATE KEY-----\\n..."}'
-
-# Issue TLS certificate from a managed CA
-curl -X POST https://your-server/api/v1/tls/issue \\
+  -d '{
+    "certificate_pem": "-----BEGIN CERTIFICATE-----\\n...",
+    "private_key_pem": "-----BEGIN PRIVATE KEY-----\\n..."
+  }'`}</CodeBlock>
+        <P>Issue TLS certificate from a managed CA:</P>
+        <CodeBlock>{`curl -X POST https://your-server/api/v1/tls/issue \\
   -H "Authorization: Bearer <token>" \\
   -H "Content-Type: application/json" \\
-  -d '{"ca_id": "<ca_id>", "common_name": "certifactory.example.com", "validity_days": 365}'`}</CodeBlock>
+  -d '{
+    "ca_id": "<ca_id>",
+    "common_name": "certifactory.example.com",
+    "validity_days": 365
+  }'`}</CodeBlock>
       </Section>
 
       <Section title="Users & Tokens">
-        <CodeBlock>{`# Create a user (admin only)
-curl -X POST https://your-server/api/v1/users \\
+        <P>Create a user (admin only):</P>
+        <CodeBlock>{`curl -X POST https://your-server/api/v1/users \\
   -H "Authorization: Bearer <token>" \\
   -H "Content-Type: application/json" \\
   -d '{
@@ -702,10 +692,9 @@ curl -X POST https://your-server/api/v1/users \\
     "email": "op1@example.com",
     "password": "securepassword",
     "role": "operator"
-  }'
-
-# Create an API token
-curl -X POST https://your-server/api/v1/tokens \\
+  }'`}</CodeBlock>
+        <P>Create an API token:</P>
+        <CodeBlock>{`curl -X POST https://your-server/api/v1/tokens \\
   -H "Authorization: Bearer <token>" \\
   -H "Content-Type: application/json" \\
   -d '{"name": "CI Pipeline"}'`}</CodeBlock>
