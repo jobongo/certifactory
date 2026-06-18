@@ -75,8 +75,11 @@ def test_full_order_to_certificate(client, db):
     fin = client.post(f"/acme/order/{order_id}/finalize", json=_jws(key, f"http://testserver/acme/order/{order_id}/finalize", nonce, {"csr": csr_b64}, kid=account_url), headers={"Content-Type": "application/jose+json"})
     assert fin.status_code == 200
     assert fin.json()["status"] == "valid"
+    assert "Replay-Nonce" in fin.headers
 
     nonce = client.head("/acme/new-nonce").headers["Replay-Nonce"]
     cert = client.post(f"/acme/order/{order_id}/cert", json=_jws(key, f"http://testserver/acme/order/{order_id}/cert", nonce, None, kid=account_url), headers={"Content-Type": "application/jose+json"})
     assert cert.status_code == 200
     assert "BEGIN CERTIFICATE" in cert.text
+    assert "application/pem-certificate-chain" in cert.headers["content-type"]
+    assert "Replay-Nonce" in cert.headers

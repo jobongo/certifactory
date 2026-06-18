@@ -322,6 +322,8 @@ async def finalize(order_id: str, request: Request, db: Session = Depends(get_db
 
 @router.post("/order/{order_id}/cert")
 async def download_cert(order_id: str, request: Request, db: Session = Depends(get_db)):
+    if not _require_enabled(db):
+        return _acme_error("unauthorized", "ACME server is disabled", 403)
     try:
         await parse_jws_request(request, db, expect_jwk=False)
     except AcmeError as e:
