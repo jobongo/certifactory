@@ -108,6 +108,38 @@ def _error_response(e: AcmeError) -> JSONResponse:
     return _acme_error(e.error_type, e.detail, e.status)
 
 
+def _order_json(request: Request, order, authzs) -> dict:
+    base = _base_url(request)
+    body = {
+        "status": order.status,
+        "expires": order.expires.isoformat() + "Z",
+        "identifiers": order.identifiers,
+        "authorizations": [f"{base}/acme/authz/{a.id}" for a in authzs],
+        "finalize": f"{base}/acme/order/{order.id}/finalize",
+    }
+    if order.certificate_id:
+        body["certificate"] = f"{base}/acme/order/{order.id}/cert"
+    return body
+
+
+def _authz_json(request: Request, authz) -> dict:
+    base = _base_url(request)
+    challenges = []
+    for ch in authz.challenges:
+        challenges.append({
+            "type": ch["type"],
+            "url": f"{base}/acme/challenge/{authz.id}/{ch['type']}",
+            "token": ch["token"],
+            "status": ch["status"],
+        })
+    return {
+        "status": authz.status,
+        "expires": authz.expires.isoformat() + "Z",
+        "identifier": {"type": authz.identifier_type, "value": authz.identifier_value},
+        "challenges": challenges,
+    }
+
+
 def _directory_body(request: Request, prefix: str) -> dict:
     base = _base_url(request)
     return {
@@ -171,4 +203,89 @@ async def new_account(request: Request, db: Session = Depends(get_db)):
     )
     resp.headers["Replay-Nonce"] = nonce_manager.issue()
     resp.headers["Location"] = f"{base}/acme/account/{account.id}"
+    return resp
+
+
+@router.post("/new-order")
+@router.post("/{ca_id}/new-order")
+async def new_order(request: Request, db: Session = Depends(get_db), ca_id: str | None = None):
+    if not _require_enabled(db):
+        return _acme_error("unauthorized", "ACME server is disabled", 403)
+    try:
+        protected, payload, jwk = await parse_jws_request(request, db, expect_jwk=False)
+    except AcmeError as e:
+        return _error_response(e)
+
+    resolved_ca = _resolve_ca_id(db, ca_id)
+    if not resolved_ca:
+        return _acme_error("unauthorized", "No CA configured for ACME", 403)
+
+    identifiers = payload.get("identifiers", [])
+    if not identifiers:
+        return _acme_error("malformed", "No identifiers in order", 400)
+
+    allowed = settings_service.get(db, "acme_allowed_domains")
+    for ident in identifiers:
+        if not acme_service.domain_allowed(allowed, ident["value"]):
+            return _acme_error("rejectedIdentifier", f"Domain not allowed: {ident['value']}", 403)
+
+    kid = protected["kid"]
+    account_id = kid.rstrip("/").split("/")[-1]
+    order = acme_service.create_order(db, account_id, resolved_ca, identifiers, None, None)
+    authzs = acme_service.list_authorizations(db, order.id)
+    base = _base_url(request)
+    resp = JSONResponse(status_code=201, content=_order_json(request, order, authzs))
+    resp.headers["Replay-Nonce"] = nonce_manager.issue()
+    resp.headers["Location"] = f"{base}/acme/order/{order.id}"
+    return resp
+
+
+@router.post("/order/{order_id}")
+async def get_order_endpoint(order_id: str, request: Request, db: Session = Depends(get_db)):
+    try:
+        await parse_jws_request(request, db, expect_jwk=False)
+    except AcmeError as e:
+        return _error_response(e)
+    order = acme_service.get_order(db, order_id)
+    if not order:
+        return _acme_error("malformed", "Order not found", 404)
+    authzs = acme_service.list_authorizations(db, order.id)
+    resp = JSONResponse(content=_order_json(request, order, authzs))
+    resp.headers["Replay-Nonce"] = nonce_manager.issue()
+    return resp
+
+
+@router.post("/authz/{authz_id}")
+async def get_authz_endpoint(authz_id: str, request: Request, db: Session = Depends(get_db)):
+    try:
+        await parse_jws_request(request, db, expect_jwk=False)
+    except AcmeError as e:
+        return _error_response(e)
+    authz = acme_service.get_authorization(db, authz_id)
+    if not authz:
+        return _acme_error("malformed", "Authorization not found", 404)
+    resp = JSONResponse(content=_authz_json(request, authz))
+    resp.headers["Replay-Nonce"] = nonce_manager.issue()
+    return resp
+
+
+@router.post("/challenge/{authz_id}/{challenge_type}")
+async def respond_challenge(authz_id: str, challenge_type: str, request: Request, db: Session = Depends(get_db)):
+    try:
+        protected, payload, jwk = await parse_jws_request(request, db, expect_jwk=False)
+    except AcmeError as e:
+        return _error_response(e)
+    try:
+        authz = acme_service.process_challenge(db, authz_id, challenge_type, jwk)
+    except ValueError as e:
+        return _acme_error(str(e), "Challenge processing failed", 400)
+    base = _base_url(request)
+    matching = next((c for c in authz.challenges if c["type"] == challenge_type), None)
+    resp = JSONResponse(content={
+        "type": challenge_type,
+        "url": f"{base}/acme/challenge/{authz.id}/{challenge_type}",
+        "token": matching["token"],
+        "status": matching["status"],
+    })
+    resp.headers["Replay-Nonce"] = nonce_manager.issue()
     return resp
