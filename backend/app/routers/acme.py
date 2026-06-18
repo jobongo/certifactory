@@ -289,3 +289,47 @@ async def respond_challenge(authz_id: str, challenge_type: str, request: Request
     })
     resp.headers["Replay-Nonce"] = nonce_manager.issue()
     return resp
+
+
+@router.post("/order/{order_id}/finalize")
+async def finalize(order_id: str, request: Request, db: Session = Depends(get_db)):
+    if not _require_enabled(db):
+        return _acme_error("unauthorized", "ACME server is disabled", 403)
+    try:
+        protected, payload, jwk = await parse_jws_request(request, db, expect_jwk=False)
+    except AcmeError as e:
+        return _error_response(e)
+
+    csr_b64 = payload.get("csr")
+    if not csr_b64:
+        return _acme_error("badCSR", "Missing CSR", 400)
+    try:
+        csr_der = b64url_decode(csr_b64)
+    except Exception:
+        return _acme_error("badCSR", "Invalid CSR encoding", 400)
+
+    try:
+        order = acme_service.finalize_order(db, order_id, csr_der)
+    except ValueError as e:
+        return _acme_error(str(e), "Finalization failed", 400)
+
+    authzs = acme_service.list_authorizations(db, order.id)
+    resp = JSONResponse(content=_order_json(request, order, authzs))
+    resp.headers["Replay-Nonce"] = nonce_manager.issue()
+    resp.headers["Location"] = f"{_base_url(request)}/acme/order/{order.id}"
+    return resp
+
+
+@router.post("/order/{order_id}/cert")
+async def download_cert(order_id: str, request: Request, db: Session = Depends(get_db)):
+    try:
+        await parse_jws_request(request, db, expect_jwk=False)
+    except AcmeError as e:
+        return _error_response(e)
+    try:
+        pem = acme_service.get_order_certificate_pem(db, order_id)
+    except ValueError as e:
+        return _acme_error(str(e), "Certificate not available", 404)
+    resp = Response(content=pem, media_type="application/pem-certificate-chain")
+    resp.headers["Replay-Nonce"] = nonce_manager.issue()
+    return resp
