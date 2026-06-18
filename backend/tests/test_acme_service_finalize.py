@@ -111,3 +111,36 @@ def test_finalize_rejects_domain_mismatch(db):
         svc.process_challenge(db, authz.id, "http-01", JWK)
     with pytest.raises(ValueError, match="badCSR"):
         svc.finalize_order(db, order.id, _csr_der("different.com"))
+
+
+def test_multi_domain_order_ready_only_when_all_authzs_valid(db):
+    acct = svc.get_or_create_account(db, JWK, None, False)
+    order = svc.create_order(
+        db, acct.id, "ca-x",
+        [{"type": "dns", "value": "multi-a.com"}, {"type": "dns", "value": "multi-b.com"}],
+        None, None,
+    )
+    authzs = svc.list_authorizations(db, order.id)
+    assert len(authzs) == 2
+    authz_a = next(a for a in authzs if a.identifier_value == "multi-a.com")
+    authz_b = next(a for a in authzs if a.identifier_value == "multi-b.com")
+
+    with patch("app.services.acme_service.validate_http_01", return_value=True):
+        updated_a = svc.process_challenge(db, authz_a.id, "http-01", JWK)
+
+    assert updated_a.status == "valid"
+    assert svc.get_order(db, order.id).status == "pending"
+
+    with patch("app.services.acme_service.validate_http_01", return_value=True):
+        updated_b = svc.process_challenge(db, authz_b.id, "http-01", JWK)
+
+    assert updated_b.status == "valid"
+    assert svc.get_order(db, order.id).status == "ready"
+
+
+def test_finalize_rejects_pending_order(db):
+    ca = _ca(db)
+    acct = svc.get_or_create_account(db, JWK, None, False)
+    order = svc.create_order(db, acct.id, ca.id, [{"type": "dns", "value": "pending.com"}], None, None)
+    with pytest.raises(ValueError, match="orderNotReady"):
+        svc.finalize_order(db, order.id, _csr_der("pending.com"))
