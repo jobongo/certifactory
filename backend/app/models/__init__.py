@@ -17,6 +17,7 @@ from app.models.audit_log import AuditLog, AuditAction, AuditResourceType
 from app.models.api_token import ApiToken
 from app.models.setting import Setting
 from app.models.certificate_template import CertificateTemplate
+from app.models.acme import AcmeAccount, AcmeOrder, AcmeAuthorization
 
 __all__ = [
     "User",
@@ -37,4 +38,7 @@ __all__ = [
     "ApiToken",
     "Setting",
     "CertificateTemplate",
+    "AcmeAccount",
+    "AcmeOrder",
+    "AcmeAuthorization",
 ]
