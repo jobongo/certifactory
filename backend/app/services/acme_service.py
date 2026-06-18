@@ -196,5 +196,17 @@ class AcmeService:
         parts = [cert.certificate_pem.strip()] + [c.strip() for c in chain]
         return "\n".join(parts) + "\n"
 
+    def revoke_certificate(self, db: Session, cert_der: bytes) -> None:
+        cert = x509.load_der_x509_certificate(cert_der)
+        serial_hex = format(cert.serial_number, "x")
+        record = db.query(Certificate).filter(Certificate.serial_number == serial_hex).first()
+        if not record:
+            raise ValueError("malformed")
+        from app.models import CertificateStatus
+        if record.status != CertificateStatus.active:
+            raise ValueError("alreadyRevoked")
+        system_user_id = self.get_system_user_id(db)
+        cert_service.revoke(db, system_user_id, record.id, "unspecified")
+
 
 acme_service = AcmeService()

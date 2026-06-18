@@ -335,3 +335,24 @@ async def download_cert(order_id: str, request: Request, db: Session = Depends(g
     resp = Response(content=pem, media_type="application/pem-certificate-chain")
     resp.headers["Replay-Nonce"] = nonce_manager.issue()
     return resp
+
+
+@router.post("/revoke-cert")
+async def revoke_cert(request: Request, db: Session = Depends(get_db)):
+    if not _require_enabled(db):
+        return _acme_error("unauthorized", "ACME server is disabled", 403)
+    try:
+        protected, payload, jwk = await parse_jws_request(request, db, expect_jwk=False)
+    except AcmeError as e:
+        return _error_response(e)
+    cert_b64 = payload.get("certificate")
+    if not cert_b64:
+        return _acme_error("malformed", "Missing certificate", 400)
+    try:
+        der = b64url_decode(cert_b64)
+        acme_service.revoke_certificate(db, der)
+    except ValueError as e:
+        return _acme_error(str(e), "Revocation failed", 400)
+    resp = Response(status_code=200)
+    resp.headers["Replay-Nonce"] = nonce_manager.issue()
+    return resp
