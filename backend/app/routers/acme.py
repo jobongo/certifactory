@@ -9,6 +9,7 @@ from app.services.acme_service import acme_service
 from app.services.acme_jws import verify_jws, decode_protected, b64url_decode, jwk_thumbprint
 from app.services.acme_nonce import nonce_manager
 from app.services.settings_service import SettingsService
+from app.models import AcmeAccount
 
 
 class AcmeError(Exception):
@@ -60,13 +61,16 @@ async def parse_jws_request(request: Request, db: Session, expect_jwk: bool):
     protected_b64 = body.get("protected")
     payload_b64 = body.get("payload", "")
     signature_b64 = body.get("signature")
-    if not protected_b64 or signature_b64 is None:
+    if not protected_b64 or not signature_b64:
         raise AcmeError("malformed", "Missing JWS fields", 400)
 
     try:
         protected = decode_protected(protected_b64)
     except Exception:
         raise AcmeError("malformed", "Invalid protected header", 400)
+
+    if protected.get("url") != str(request.url):
+        raise AcmeError("unauthorized", "JWS url does not match request URL", 401)
 
     nonce = protected.get("nonce")
     if not nonce or not nonce_manager.consume(nonce):
@@ -81,7 +85,6 @@ async def parse_jws_request(request: Request, db: Session, expect_jwk: bool):
         if not kid:
             raise AcmeError("malformed", "Expected kid in protected header", 400)
         account_id = kid.rstrip("/").split("/")[-1]
-        from app.models import AcmeAccount
         account = db.query(AcmeAccount).filter(AcmeAccount.id == account_id).first()
         if not account:
             raise AcmeError("accountDoesNotExist", "Unknown account", 400)

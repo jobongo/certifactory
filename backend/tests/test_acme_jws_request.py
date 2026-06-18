@@ -53,3 +53,69 @@ def test_bad_nonce_rejected(client, db):
     resp = client.post("/acme/new-account", json=body, headers={"Content-Type": "application/jose+json"})
     assert resp.status_code == 400
     assert "badNonce" in resp.json()["type"]
+
+
+def test_url_mismatch_rejected(client, db):
+    _enable(db)
+    nonce = client.head("/acme/new-nonce").headers["Replay-Nonce"]
+    key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    jwk = _rsa_jwk(key.public_key())
+    # Sign with the WRONG url — not the endpoint being POSTed to
+    wrong_url = "http://testserver/acme/WRONG"
+    body = _signed_jws(key, jwk, wrong_url, nonce, {"termsOfServiceAgreed": True})
+    resp = client.post("/acme/new-account", json=body, headers={"Content-Type": "application/jose+json"})
+    assert resp.status_code == 401
+    assert resp.json()["type"].endswith("unauthorized")
+
+
+def test_invalid_signature_rejected(client, db):
+    _enable(db)
+    nonce = client.head("/acme/new-nonce").headers["Replay-Nonce"]
+    key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    jwk = _rsa_jwk(key.public_key())
+    url = "http://testserver/acme/new-account"
+    body = _signed_jws(key, jwk, url, nonce, {"termsOfServiceAgreed": True})
+    # Corrupt the signature with a valid-base64url but wrong value
+    body["signature"] = b64url_encode(b"\x00" * 256)
+    resp = client.post("/acme/new-account", json=body, headers={"Content-Type": "application/jose+json"})
+    assert resp.status_code == 401
+    assert resp.json()["type"].endswith("unauthorized")
+
+
+def test_same_jwk_returns_same_account(client, db):
+    # Verifies account deduplication: two new-account calls with the same JWK
+    # must return the same Location header (kid stability).
+    _enable(db)
+    key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    jwk = _rsa_jwk(key.public_key())
+    url = "http://testserver/acme/new-account"
+
+    nonce1 = client.head("/acme/new-nonce").headers["Replay-Nonce"]
+    body1 = _signed_jws(key, jwk, url, nonce1, {"termsOfServiceAgreed": True})
+    resp1 = client.post("/acme/new-account", json=body1, headers={"Content-Type": "application/jose+json"})
+    assert resp1.status_code in (200, 201)
+    location1 = resp1.headers.get("Location", "")
+    assert location1 != ""
+
+    nonce2 = client.head("/acme/new-nonce").headers["Replay-Nonce"]
+    body2 = _signed_jws(key, jwk, url, nonce2, {"termsOfServiceAgreed": True})
+    resp2 = client.post("/acme/new-account", json=body2, headers={"Content-Type": "application/jose+json"})
+    assert resp2.status_code in (200, 201)
+    location2 = resp2.headers.get("Location", "")
+    assert location2 == location1
+
+
+def test_registration_closed_rejects_new_jwk(client, db):
+    _enable(db)
+    # Close registration
+    from app.models.setting import Setting
+    db.add(Setting(key="acme_registration_open", value="false"))
+    db.commit()
+
+    nonce = client.head("/acme/new-nonce").headers["Replay-Nonce"]
+    key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    jwk = _rsa_jwk(key.public_key())
+    url = "http://testserver/acme/new-account"
+    body = _signed_jws(key, jwk, url, nonce, {"termsOfServiceAgreed": True})
+    resp = client.post("/acme/new-account", json=body, headers={"Content-Type": "application/jose+json"})
+    assert resp.status_code == 403
