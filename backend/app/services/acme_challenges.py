@@ -24,7 +24,7 @@ def validate_http_01(domain: str, token: str, jwk: dict) -> bool:
     expected = key_authorization(token, jwk)
     url = f"http://{domain}/.well-known/acme-challenge/{token}"
     try:
-        resp = httpx.get(url, timeout=_HTTP_TIMEOUT, follow_redirects=True)
+        resp = httpx.get(url, timeout=_HTTP_TIMEOUT, follow_redirects=False)
         if resp.status_code != 200:
             return False
         return resp.text.strip() == expected

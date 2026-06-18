@@ -99,7 +99,7 @@ class CertificateService:
         audit.log(db, user_id, AuditAction.issued_cert if cert_record.status == CertificateStatus.active else AuditAction.submitted_csr, AuditResourceType.certificate, cert_record.id)
         return cert_record
 
-    def submit_csr(self, db: Session, user_id: str, data: dict) -> Certificate:
+    def submit_csr(self, db: Session, user_id: str, data: dict, _skip_duplicate_check: bool = False) -> Certificate:
         ca = db.query(CertificateAuthority).filter(CertificateAuthority.id == data["ca_id"]).first()
         if not ca:
             raise ValueError("CA not found")
@@ -108,7 +108,8 @@ class CertificateService:
 
         csr_info = crypto.parse_csr(data["csr_pem"])
         subject_dn = ", ".join(f"{k}={v}" for k, v in csr_info["subject"].items())
-        self._check_duplicate_cn(db, ca.id, subject_dn)
+        if not _skip_duplicate_check:
+            self._check_duplicate_cn(db, ca.id, subject_dn)
         serial = self._get_next_serial(db, ca.id)
 
         validity_days = data.get("validity_days") or settings_svc.get(db, "default_cert_validity_days")

@@ -242,13 +242,18 @@ async def new_order(request: Request, db: Session = Depends(get_db), ca_id: str 
 
 @router.post("/order/{order_id}")
 async def get_order_endpoint(order_id: str, request: Request, db: Session = Depends(get_db)):
+    if not _require_enabled(db):
+        return _acme_error("unauthorized", "ACME server is disabled", 403)
     try:
-        await parse_jws_request(request, db, expect_jwk=False)
+        protected, payload, jwk = await parse_jws_request(request, db, expect_jwk=False)
     except AcmeError as e:
         return _error_response(e)
+    account_id = protected["kid"].rstrip("/").split("/")[-1]
     order = acme_service.get_order(db, order_id)
     if not order:
         return _acme_error("malformed", "Order not found", 404)
+    if order.account_id != account_id:
+        return _acme_error("unauthorized", "Order belongs to another account", 403)
     authzs = acme_service.list_authorizations(db, order.id)
     resp = JSONResponse(content=_order_json(request, order, authzs))
     resp.headers["Replay-Nonce"] = nonce_manager.issue()
@@ -257,13 +262,19 @@ async def get_order_endpoint(order_id: str, request: Request, db: Session = Depe
 
 @router.post("/authz/{authz_id}")
 async def get_authz_endpoint(authz_id: str, request: Request, db: Session = Depends(get_db)):
+    if not _require_enabled(db):
+        return _acme_error("unauthorized", "ACME server is disabled", 403)
     try:
-        await parse_jws_request(request, db, expect_jwk=False)
+        protected, payload, jwk = await parse_jws_request(request, db, expect_jwk=False)
     except AcmeError as e:
         return _error_response(e)
+    account_id = protected["kid"].rstrip("/").split("/")[-1]
     authz = acme_service.get_authorization(db, authz_id)
     if not authz:
         return _acme_error("malformed", "Authorization not found", 404)
+    authz_order = acme_service.get_order(db, authz.order_id)
+    if not authz_order or authz_order.account_id != account_id:
+        return _acme_error("unauthorized", "Authorization belongs to another account", 403)
     resp = JSONResponse(content=_authz_json(request, authz))
     resp.headers["Replay-Nonce"] = nonce_manager.issue()
     return resp
@@ -271,10 +282,19 @@ async def get_authz_endpoint(authz_id: str, request: Request, db: Session = Depe
 
 @router.post("/challenge/{authz_id}/{challenge_type}")
 async def respond_challenge(authz_id: str, challenge_type: str, request: Request, db: Session = Depends(get_db)):
+    if not _require_enabled(db):
+        return _acme_error("unauthorized", "ACME server is disabled", 403)
     try:
         protected, payload, jwk = await parse_jws_request(request, db, expect_jwk=False)
     except AcmeError as e:
         return _error_response(e)
+    account_id = protected["kid"].rstrip("/").split("/")[-1]
+    authz_pre = acme_service.get_authorization(db, authz_id)
+    if not authz_pre:
+        return _acme_error("malformed", "Authorization not found", 404)
+    challenge_order = acme_service.get_order(db, authz_pre.order_id)
+    if not challenge_order or challenge_order.account_id != account_id:
+        return _acme_error("unauthorized", "Authorization belongs to another account", 403)
     try:
         authz = acme_service.process_challenge(db, authz_id, challenge_type, jwk)
     except ValueError as e:
@@ -299,6 +319,13 @@ async def finalize(order_id: str, request: Request, db: Session = Depends(get_db
         protected, payload, jwk = await parse_jws_request(request, db, expect_jwk=False)
     except AcmeError as e:
         return _error_response(e)
+
+    account_id = protected["kid"].rstrip("/").split("/")[-1]
+    pre_order = acme_service.get_order(db, order_id)
+    if not pre_order:
+        return _acme_error("malformed", "Order not found", 404)
+    if pre_order.account_id != account_id:
+        return _acme_error("unauthorized", "Order belongs to another account", 403)
 
     csr_b64 = payload.get("csr")
     if not csr_b64:
@@ -325,9 +352,15 @@ async def download_cert(order_id: str, request: Request, db: Session = Depends(g
     if not _require_enabled(db):
         return _acme_error("unauthorized", "ACME server is disabled", 403)
     try:
-        await parse_jws_request(request, db, expect_jwk=False)
+        protected, payload, jwk = await parse_jws_request(request, db, expect_jwk=False)
     except AcmeError as e:
         return _error_response(e)
+    account_id = protected["kid"].rstrip("/").split("/")[-1]
+    cert_order = acme_service.get_order(db, order_id)
+    if not cert_order:
+        return _acme_error("malformed", "Order not found", 404)
+    if cert_order.account_id != account_id:
+        return _acme_error("unauthorized", "Order belongs to another account", 403)
     try:
         pem = acme_service.get_order_certificate_pem(db, order_id)
     except ValueError as e:
@@ -345,12 +378,13 @@ async def revoke_cert(request: Request, db: Session = Depends(get_db)):
         protected, payload, jwk = await parse_jws_request(request, db, expect_jwk=False)
     except AcmeError as e:
         return _error_response(e)
+    account_id = protected["kid"].rstrip("/").split("/")[-1]
     cert_b64 = payload.get("certificate")
     if not cert_b64:
         return _acme_error("malformed", "Missing certificate", 400)
     try:
         der = b64url_decode(cert_b64)
-        acme_service.revoke_certificate(db, der)
+        acme_service.revoke_certificate(db, der, account_id)
     except ValueError as e:
         return _acme_error(str(e), "Revocation failed", 400)
     resp = Response(status_code=200)

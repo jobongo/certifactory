@@ -174,7 +174,7 @@ class AcmeService:
         system_user_id = self.get_system_user_id(db)
         cert = cert_service.submit_csr(db, system_user_id, {
             "ca_id": order.ca_id, "csr_pem": csr_pem, "type": "server",
-        })
+        }, _skip_duplicate_check=True)
         if cert.status == CertificateStatus.pending:
             cert = cert_service.approve(db, system_user_id, cert.id, _skip_self_check=True)
 
@@ -195,7 +195,7 @@ class AcmeService:
         parts = [cert.certificate_pem.strip()] + [c.strip() for c in chain]
         return "\n".join(parts) + "\n"
 
-    def revoke_certificate(self, db: Session, cert_der: bytes) -> None:
+    def revoke_certificate(self, db: Session, cert_der: bytes, account_id: str) -> None:
         try:
             cert = x509.load_der_x509_certificate(cert_der)
         except Exception:
@@ -206,6 +206,12 @@ class AcmeService:
             raise ValueError("malformed")
         if record.status != CertificateStatus.active:
             raise ValueError("alreadyRevoked")
+        order = db.query(AcmeOrder).filter(
+            AcmeOrder.certificate_id == record.id,
+            AcmeOrder.account_id == account_id,
+        ).first()
+        if not order:
+            raise ValueError("unauthorized")
         system_user_id = self.get_system_user_id(db)
         cert_service.revoke(db, system_user_id, record.id, "unspecified")
 
