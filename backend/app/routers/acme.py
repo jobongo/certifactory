@@ -224,7 +224,7 @@ async def new_order(request: Request, db: Session = Depends(get_db), ca_id: str 
     if not identifiers:
         return _acme_error("malformed", "No identifiers in order", 400)
 
-    allowed = settings_service.get(db, "acme_allowed_domains")
+    allowed = settings_service.get(db, "acme_allowed_domains") or ""
     for ident in identifiers:
         if not acme_service.domain_allowed(allowed, ident["value"]):
             return _acme_error("rejectedIdentifier", f"Domain not allowed: {ident['value']}", 403)
