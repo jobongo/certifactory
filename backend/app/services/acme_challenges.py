@@ -50,11 +50,11 @@ def validate_dns_01(domain: str, token: str, jwk: dict) -> bool:
 def validate_tls_alpn_01(domain: str, token: str, jwk: dict) -> bool:
     ka = key_authorization(token, jwk)
     expected_digest = hashlib.sha256(ka.encode()).digest()
-    ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
-    ctx.check_hostname = False
-    ctx.verify_mode = ssl.CERT_NONE
-    ctx.set_alpn_protocols(["acme-tls/1"])
     try:
+        ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+        ctx.check_hostname = False
+        ctx.verify_mode = ssl.CERT_NONE
+        ctx.set_alpn_protocols(["acme-tls/1"])
         with socket.create_connection((domain, 443), timeout=_HTTP_TIMEOUT) as sock:
             with ctx.wrap_socket(sock, server_hostname=domain) as ssock:
                 der = ssock.getpeercert(binary_form=True)
