@@ -6,7 +6,7 @@ from cryptography import x509
 from cryptography.hazmat.primitives import serialization
 from sqlalchemy.orm import Session
 
-from app.models import AcmeAccount, AcmeAuthorization, AcmeOrder, Certificate, CertificateAuthority, User, UserRole
+from app.models import AcmeAccount, AcmeAuthorization, AcmeOrder, Certificate, CertificateAuthority, CertificateStatus, User, UserRole
 from app.services.acme_challenges import validate_http_01, validate_dns_01, validate_tls_alpn_01
 from app.services.acme_jws import b64url_encode, jwk_thumbprint
 from app.services.auth_service import AuthService
@@ -175,7 +175,6 @@ class AcmeService:
         cert = cert_service.submit_csr(db, system_user_id, {
             "ca_id": order.ca_id, "csr_pem": csr_pem, "type": "server",
         })
-        from app.models import CertificateStatus
         if cert.status == CertificateStatus.pending:
             cert = cert_service.approve(db, system_user_id, cert.id, _skip_self_check=True)
 
@@ -197,12 +196,14 @@ class AcmeService:
         return "\n".join(parts) + "\n"
 
     def revoke_certificate(self, db: Session, cert_der: bytes) -> None:
-        cert = x509.load_der_x509_certificate(cert_der)
+        try:
+            cert = x509.load_der_x509_certificate(cert_der)
+        except Exception:
+            raise ValueError("malformed")
         serial_hex = format(cert.serial_number, "x")
         record = db.query(Certificate).filter(Certificate.serial_number == serial_hex).first()
         if not record:
             raise ValueError("malformed")
-        from app.models import CertificateStatus
         if record.status != CertificateStatus.active:
             raise ValueError("alreadyRevoked")
         system_user_id = self.get_system_user_id(db)
