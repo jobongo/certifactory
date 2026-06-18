@@ -13,6 +13,7 @@ const categoryLabels = {
   certificates: 'Certificates',
   maintenance: 'Maintenance',
   mcp: 'MCP Server',
+  acme: 'ACME Server',
 }
 
 const categoryDescriptions = {
@@ -20,6 +21,7 @@ const categoryDescriptions = {
   certificates: 'Default values for certificate and CA creation',
   maintenance: 'Background job schedules and data retention',
   mcp: 'Model Context Protocol server for AI agent access',
+  acme: 'ACME protocol server for automated clients (certbot, Caddy)',
 }
 
 function SettingField({ settingKey, definition, value, onChange }) {
@@ -43,6 +45,23 @@ function SettingField({ settingKey, definition, value, onChange }) {
             }`}
           />
         </button>
+      </div>
+    )
+  }
+
+  if (definition.type === 'string') {
+    return (
+      <div className="flex items-center justify-between py-3 border-b border-gray-100 dark:border-gray-800 last:border-0">
+        <div className="flex-1 mr-4">
+          <div className="text-sm font-medium text-gray-900 dark:text-gray-100">{definition.label}</div>
+          <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{definition.description}</div>
+        </div>
+        <input
+          type="text"
+          value={value || ''}
+          onChange={(e) => onChange(settingKey, e.target.value)}
+          className="w-64 px-3 py-1.5 rounded border text-sm bg-white dark:bg-surface-4 border-gray-300 dark:border-gray-700 text-gray-900 dark:text-gray-100 focus:outline-none focus:ring-1 focus:ring-gray-400 dark:focus:ring-gray-500"
+        />
       </div>
     )
   }

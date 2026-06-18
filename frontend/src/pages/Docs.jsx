@@ -733,6 +733,61 @@ function Glossary() {
   )
 }
 
+function AcmeGuide() {
+  return (
+    <div>
+      <H2>ACME Server</H2>
+      <P>Certifactory includes an ACME (RFC 8555) server, letting automated clients like certbot and Caddy obtain certificates without manual steps. ACME is an additional feature — the web UI, REST API, and MCP server are unaffected.</P>
+
+      <Section title="Enabling ACME" defaultOpen>
+        <P>On the <strong>Settings</strong> page, under <strong>ACME Server</strong>:</P>
+        <ul className="list-disc list-inside space-y-1 mb-3">
+          <Li><strong>ACME Server Enabled</strong> — global on/off switch.</Li>
+          <Li><strong>ACME Default CA</strong> — the CA used for the default <Code>/acme/directory</Code> endpoint.</Li>
+          <Li><strong>ACME Open Registration</strong> — allow new clients to register accounts.</Li>
+          <Li><strong>ACME Allowed Domains</strong> — restrict issuance to matching domains (e.g. <Code>*.example.com</Code>). Empty allows all.</Li>
+        </ul>
+      </Section>
+
+      <Section title="Directory URLs">
+        <P>Point your ACME client at one of these directory URLs:</P>
+        <CodeBlock>{`# Default CA
+https://your-server/acme/directory
+
+# A specific CA by ID
+https://your-server/acme/<ca_id>/directory`}</CodeBlock>
+      </Section>
+
+      <Section title="Using certbot">
+        <P>Request a certificate with the HTTP-01 challenge:</P>
+        <CodeBlock>{`certbot certonly \\
+  --server https://your-server/acme/directory \\
+  --standalone \\
+  -d example.com -d www.example.com`}</CodeBlock>
+      </Section>
+
+      <Section title="Using Caddy">
+        <P>In your Caddyfile, set the ACME CA globally:</P>
+        <CodeBlock>{`{
+  acme_ca https://your-server/acme/directory
+}
+
+example.com {
+  respond "Hello"
+}`}</CodeBlock>
+      </Section>
+
+      <Section title="Challenge Types">
+        <ul className="list-disc list-inside space-y-1 mb-3">
+          <Li><strong>HTTP-01</strong> — Certifactory fetches a token from <Code>http://domain/.well-known/acme-challenge/</Code>.</Li>
+          <Li><strong>DNS-01</strong> — Certifactory checks a TXT record at <Code>_acme-challenge.domain</Code>. Required for wildcards.</Li>
+          <Li><strong>TLS-ALPN-01</strong> — Certifactory connects on port 443 using the <Code>acme-tls/1</Code> protocol.</Li>
+        </ul>
+      </Section>
+    </div>
+  )
+}
+
 const tabs = [
   { key: 'start', label: 'Getting Started', content: <GettingStarted /> },
   { key: 'authorities', label: 'Authorities', content: <AuthoritiesGuide /> },
@@ -741,6 +796,7 @@ const tabs = [
   { key: 'users', label: 'Users & Roles', content: <UsersGuide /> },
   { key: 'settings', label: 'Settings', content: <SettingsGuide /> },
   { key: 'mcp', label: 'MCP Server', content: <MCPGuide /> },
+  { key: 'acme', label: 'ACME', content: <AcmeGuide /> },
   { key: 'api', label: 'API Reference', content: <APIGuide /> },
   { key: 'glossary', label: 'Glossary', content: <Glossary /> },
 ]
