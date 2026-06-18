@@ -5,7 +5,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
-from app.routers import auth, users, audit, cas, certificates, crl, ocsp, dashboard, tokens, settings as settings_router, templates, tls
+from app.routers import auth, users, audit, cas, certificates, crl, ocsp, dashboard, tokens, settings as settings_router, templates, tls, acme
 from app.mcp_server import mcp
 
 
@@ -50,6 +50,7 @@ app.include_router(tokens.router)
 app.include_router(settings_router.router)
 app.include_router(templates.router)
 app.include_router(tls.router)
+app.include_router(acme.router)
 
 app.mount("", mcp.streamable_http_app())
 
