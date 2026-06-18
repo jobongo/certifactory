@@ -100,6 +100,34 @@ SETTINGS_DEFINITIONS = {
         "description": "Allow AI agents to approve or deny certificate requests via MCP",
         "category": "mcp",
     },
+    "acme_enabled": {
+        "type": "bool",
+        "default": False,
+        "label": "ACME Server Enabled",
+        "description": "Allow ACME clients (certbot, Caddy) to request certificates",
+        "category": "acme",
+    },
+    "acme_default_ca_id": {
+        "type": "string",
+        "default": "",
+        "label": "ACME Default CA",
+        "description": "CA used for the default /acme/directory endpoint",
+        "category": "acme",
+    },
+    "acme_registration_open": {
+        "type": "bool",
+        "default": True,
+        "label": "ACME Open Registration",
+        "description": "Allow new ACME accounts to register",
+        "category": "acme",
+    },
+    "acme_allowed_domains": {
+        "type": "string",
+        "default": "",
+        "label": "ACME Allowed Domains",
+        "description": "Comma-separated domain patterns (e.g. *.example.com). Empty allows all.",
+        "category": "acme",
+    },
 }
 
 

@@ -25,6 +25,10 @@ class SettingsUpdate(BaseModel):
     default_ca_auto_approve: bool | None = None
     audit_retention_days: int | None = None
     crl_regen_interval_minutes: int | None = None
+    acme_enabled: bool | None = None
+    acme_default_ca_id: str | None = None
+    acme_registration_open: bool | None = None
+    acme_allowed_domains: str | None = None
 
 
 class SettingDefinition(BaseModel):
