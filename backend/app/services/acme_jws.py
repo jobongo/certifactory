@@ -1,4 +1,5 @@
 import base64
+import binascii
 import hashlib
 import json
 
@@ -7,6 +8,8 @@ from cryptography.hazmat.primitives.asymmetric import padding, ec, utils
 from cryptography.hazmat.primitives.asymmetric.rsa import RSAPublicNumbers
 from cryptography.hazmat.primitives.asymmetric.ec import EllipticCurvePublicNumbers, SECP256R1, SECP384R1, SECP521R1
 from cryptography.exceptions import InvalidSignature
+
+_HASHES = {"256": hashes.SHA256(), "384": hashes.SHA384(), "512": hashes.SHA512()}
 
 
 def b64url_encode(b: bytes) -> str:
@@ -50,22 +53,25 @@ def _public_key_from_jwk(jwk: dict):
 
 def verify_jws(protected: dict, payload_b64: str, signature_b64: str, jwk: dict, protected_b64: str) -> bool:
     signing_input = f"{protected_b64}.{payload_b64}".encode()
-    signature = b64url_decode(signature_b64)
     try:
+        signature = b64url_decode(signature_b64)
         public_key = _public_key_from_jwk(jwk)
         alg = protected.get("alg", "")
+        suffix = alg[2:]
+        hash_alg = _HASHES.get(suffix)
+        if hash_alg is None:
+            return False
         if alg.startswith("RS"):
-            public_key.verify(signature, signing_input, padding.PKCS1v15(), hashes.SHA256())
+            public_key.verify(signature, signing_input, padding.PKCS1v15(), hash_alg)
         elif alg.startswith("ES"):
             # JWS ES* uses raw r||s; convert to DER for cryptography
             half = len(signature) // 2
             r = int.from_bytes(signature[:half], "big")
             s = int.from_bytes(signature[half:], "big")
             der_sig = utils.encode_dss_signature(r, s)
-            hash_alg = {"ES256": hashes.SHA256(), "ES384": hashes.SHA384(), "ES512": hashes.SHA512()}[alg]
             public_key.verify(der_sig, signing_input, ec.ECDSA(hash_alg))
         else:
             return False
         return True
-    except (InvalidSignature, ValueError, KeyError):
+    except (InvalidSignature, ValueError, KeyError, binascii.Error):
         return False
